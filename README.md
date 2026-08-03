@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Fortmont Control Plane
 
-## Getting Started
+Welcome to **Fortmont Control Plane (FCP)**, the next generation of the Fortmont platform.
 
-First, run the development server:
+Fortmont Control Plane is a complete redesign of the original Fortmont API, built with scalability, security, and long-term maintainability in mind. Rather than simply acting as an API, FCP serves as the central platform responsible for authentication, agent management, infrastructure orchestration, and communication between Fortmont applications.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+As the platform evolves, FCP will provide secure registration and management of Fortmont Agents, enabling real-time communication with customer infrastructure. Agents will be capable of collecting system metrics, executing infrastructure tasks, and securely interacting with services such as virtualization platforms, networking equipment, and other supported integrations.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# 🚧 Project Status
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Fortmont Control Plane is currently in **early development**.
 
-## Learn More
+Core platform functionality is actively being developed, and many features are still incomplete or subject to change. During the coming weeks, development will focus on:
 
-To learn more about Next.js, take a look at the following resources:
+* 🏗️ Building the core platform architecture
+* 🔐 Implementing secure authentication and authorization
+* 🤖 Developing the Fortmont Agent communication protocol
+* 🖥️ Expanding infrastructure management capabilities
+* ✨ Improving stability, security, and overall developer experience
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Until an initial stable release is available, breaking changes should be expected.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+# ☁️ The Fortmont Platform
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Fortmont Control Plane is only one part of the new Fortmont ecosystem.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The platform is being redesigned around two primary applications:
+
+* **🛡️ Fortmont Control Plane** – The backend platform responsible for authentication, APIs, agent management, and infrastructure communication.
+* **☁️ Fortmont Cloud** – The customer-facing experience, providing dashboards, infrastructure management, storage, monitoring, and future productivity applications.
+
+This separation allows the platform to support multiple clients—including web, desktop, mobile, CLI, and the Fortmont Agent—all through a single, consistent API.
+
+---
+
+# 📚 Learn More
+
+A dedicated Fortmont website is currently under development and will include:
+
+* 📖 Product documentation
+* 🚀 Getting started guides
+* 🔌 API documentation
+* 📢 Feature announcements
+* 💬 Community resources
+
+Until then, if you have questions or would like to learn more about the project, feel free to open a GitHub issue using the **`[info]`** prefix.
+
+---
+
+# 🌱 A New Direction
+
+Earlier Fortmont projects, including **Fortmont Home** and the original **Fortmont API**, were primarily designed around personal homelab management and infrastructure integrations.
+
+Fortmont Control Plane represents a complete architectural redesign.
+
+The goal is to build a modern platform that is:
+
+* ☁️ Cloud-first
+* 🔌 API-first
+* 👨‍💻 Developer-friendly
+* 🧩 Modular and scalable
+* 🌍 Designed for both homelab enthusiasts and professional environments
+
+This redesign lays the foundation for future capabilities while making it significantly easier to expand the platform over time.
+
+---
+
+# ⚡ Getting Started
+
+A hosted preview of Fortmont Control Plane and Fortmont Cloud is planned once the platform reaches a stable state.
+
+At this stage, local development is **not officially supported**, as the architecture is still evolving rapidly and frequent breaking changes are expected.
+
+Installation guides and developer documentation will be published when the project reaches its first stable milestone.
+
+---
+
+# ❤️ A Personal Note
+
+Fortmont began as a personal learning project driven by curiosity and a passion for infrastructure, systems administration, and software development.
+
+Over time, it has grown into something much bigger than originally imagined.
+
+Whether Fortmont becomes a widely used platform or simply remains an incredible learning experience, every version represents another opportunity to improve, experiment, and build something meaningful.
+
+Thank you for taking the time to explore the project—I hope you enjoy following its journey as much as I've enjoyed building it.
+
+---
+
+# 🤖 AI Assistance
+
+Fortmont is developed with the assistance of modern AI tools.
+
+AI is used to accelerate development, assist with implementation ideas, improve documentation, and help prototype user interfaces. However, all significant architectural decisions, code reviews, testing, debugging, and production-ready implementations are performed and verified by the developer before being incorporated into the project.
