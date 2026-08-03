@@ -42,8 +42,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                   <Command className="size-4" />
                 </div>
                 <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="text-sm font-semibold text-sidebar-foreground">Fortmont Home</span>
-                  <span className="text-xs text-muted-foreground">{user?.name || "Dashboard"}</span>
+                  <span className="text-sm font-semibold text-sidebar-foreground">Fortmont Control Plane</span>
                 </div>
               </Link>
             </SidebarMenuButton>
