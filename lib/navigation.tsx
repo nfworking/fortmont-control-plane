@@ -51,8 +51,19 @@ export const baseNavigationConfig: NavigationConfig = {
     { title: "Dashboard", url: "/dashboard/control-plane", icon: <LayoutDashboardIcon />, section: 1 },
     { title: "Agents", url: "/dashboard/control-plane/agents", icon: <Sliders />, section: 1 },
     { title: "API Server", url: "/dashboard/control-plane/server", icon: <GitFork />, section: 1 },
+    { title: "AI", url: "/dashboard/control-plane/ai/overview", icon: <CommandIcon />, section: 1 },
   ],
-
+  nested: {
+    "/dashboard/control-plane/ai": {
+      parentTitle: "AI Home",
+      parentUrl: "/dashboard/control-plane/ai/overview",
+      items: [
+        { title: "Dashboard", url: "/dashboard/control-plane/ai/overview", icon: <LayoutDashboardIcon /> },
+        { title: "Providers", url: "/dashboard/control-plane/ai/providers", icon: <Sliders /> },
+        { title: "Chat", url: "/dashboard/control-plane/ai/chat", icon: <GlobeLock /> },
+      ],
+    },
+  },
 }
 
 export function useNavigationConfig(): NavigationConfig {
