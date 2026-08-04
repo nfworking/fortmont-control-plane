@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Copy, Check } from "lucide-react";
 import packageJson from "@/package.json";
 
 interface Agent {
@@ -33,10 +34,13 @@ export default function ControlPlaneDashboardPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState<boolean>(true);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [activeOrganization, setActiveOrganization] = useState<{ id: string; name: string; slug: string } | null>(null);
+  const [copiedOrgId, setCopiedOrgId] = useState(false);
+  const [orgRefreshToken, setOrgRefreshToken] = useState(0);
 
   // 1. Connect to live SSE Agents stream
   useEffect(() => {
-    const eventSource = new EventSource("/api/v2/agents/stream");
+    const eventSource = new EventSource("/api/v2/organization/agents/stream");
 
     eventSource.onopen = () => {
       setSseStatus("connected");
@@ -64,7 +68,40 @@ export default function ControlPlaneDashboardPage() {
     return () => {
       eventSource.close();
     };
+  }, [orgRefreshToken]);
+
+  useEffect(() => {
+    const handleOrganizationChange = () => {
+      setOrgRefreshToken((value) => value + 1);
+    };
+
+    window.addEventListener("organization-changed", handleOrganizationChange);
+    return () => {
+      window.removeEventListener("organization-changed", handleOrganizationChange);
+    };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadOrganization = async () => {
+      try {
+        const response = await fetch("/api/v2/organization/active", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Failed to load active organization");
+        }
+
+        const payload = await response.json();
+        if (mounted) {
+          setActiveOrganization(payload.organization ?? null);
+        }
+      } catch (error) {
+        console.error("Failed to load active organization", error);
+      }
+    };
+
+    void loadOrganization();
+  }, [orgRefreshToken]);
 
   // 2. Load persisted audit log feed for operator visibility
   useEffect(() => {
@@ -109,6 +146,20 @@ export default function ControlPlaneDashboardPage() {
   }, []);
 
   const activeAgentsCount = agents.filter((a) => a.connected).length;
+
+  const orgIdLabel = useMemo(() => activeOrganization?.id ?? "No organization selected", [activeOrganization]);
+
+  const copyOrganizationId = async () => {
+    if (!activeOrganization?.id) return;
+
+    try {
+      await navigator.clipboard.writeText(activeOrganization.id);
+      setCopiedOrgId(true);
+      window.setTimeout(() => setCopiedOrgId(false), 1800);
+    } catch (error) {
+      console.error("Failed to copy organization ID", error);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto w-full text-foreground bg-background">
@@ -159,8 +210,32 @@ export default function ControlPlaneDashboardPage() {
           <span className="text-xs text-muted-foreground mt-1 block">Production Release</span>
         </div>
 
-        {/* Server Uptime */}
-        
+        {/* Active Organization */}
+        <div className="p-4 rounded-xl border border-border bg-card">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Active Organization
+          </span>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight truncate">
+                {activeOrganization?.name ?? "No organization selected"}
+              </div>
+              <div className="font-mono text-xs text-muted-foreground truncate">{orgIdLabel}</div>
+            </div>
+            {activeOrganization?.id ? (
+              <button
+                type="button"
+                onClick={() => void copyOrganizationId()}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition hover:text-foreground"
+                aria-label="Copy organization ID"
+              >
+                {copiedOrgId ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </button>
+            ) : null}
+          </div>
+          <span className="text-xs text-muted-foreground mt-2 block">Use this ID when enrolling an agent</span>
+        </div>
+
         {/* Total Agents */}
         <div className="p-4 rounded-xl border border-border bg-card">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

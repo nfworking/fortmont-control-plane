@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 import { db } from "@/db/drizzle";
@@ -18,11 +18,13 @@ import {
   registerAgentWithToken,
 } from "@/lib/server/agent-registry";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
-async function listAgents() {
+async function listAgents(organizationId: string) {
   const agents = await db
     .select()
     .from(agent)
+    .where(eq(agent.organizationId, organizationId))
     .orderBy(desc(agent.createdAt));
 
   const now = Date.now();
@@ -43,7 +45,12 @@ export async function GET() {
   const { session, response } = await requireDashboardSession();
   if (response || !session) return response;
 
-  const agents = await listAgents();
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
+
+  const agents = await listAgents(orgContext.activeOrganization.id);
 
   return NextResponse.json({ agents });
 }
@@ -55,6 +62,8 @@ export async function POST(request: NextRequest) {
   if (!body || typeof body !== "object") {
     return jsonError("Invalid JSON body", 400);
   }
+
+  const organizationId = typeof body.organizationId === "string" ? body.organizationId : null;
 
   if ("joinToken" in body) {
     const parsed = registerAgentSchema.safeParse(body);
@@ -114,6 +123,12 @@ export async function POST(request: NextRequest) {
   const { session, response } = await requireDashboardSession();
   if (response || !session) return response;
 
+  const orgContext = await getActiveOrganizationContext();
+  const resolvedOrganizationId = organizationId ?? orgContext.activeOrganization?.id ?? null;
+  if (!resolvedOrganizationId) {
+    return jsonError("No active organization selected", 404);
+  }
+
   const parsed = createAgentSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -123,7 +138,7 @@ export async function POST(request: NextRequest) {
   const [existing] = await db
     .select({ id: agent.id })
     .from(agent)
-    .where(eq(agent.deviceId, parsed.data.deviceId))
+    .where(and(eq(agent.deviceId, parsed.data.deviceId), eq(agent.organizationId, resolvedOrganizationId)))
     .limit(1);
 
   if (existing) {
@@ -136,6 +151,7 @@ export async function POST(request: NextRequest) {
     .insert(agent)
     .values({
       ...parsed.data,
+      organizationId: resolvedOrganizationId,
       description: parsed.data.description ?? null,
       localIp: parsed.data.localIp ?? null,
       publicIp: parsed.data.publicIp ?? getRequestPublicIp(request.headers),

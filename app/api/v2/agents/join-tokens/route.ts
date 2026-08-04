@@ -11,6 +11,7 @@ import {
   jsonError,
   requireDashboardSession,
 } from "@/lib/server/agents";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
 const createJoinTokenSchema = z.object({
   label: z.string().max(120).optional().nullable(),
@@ -21,6 +22,11 @@ const createJoinTokenSchema = z.object({
 export async function GET() {
   const { response } = await requireDashboardSession();
   if (response) return response;
+
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
 
   const now = new Date();
 
@@ -37,7 +43,13 @@ export async function GET() {
       createdByUserId: agentJoinToken.createdByUserId,
     })
     .from(agentJoinToken)
-    .where(and(eq(agentJoinToken.revoked, false), gt(agentJoinToken.expiresAt, now)))
+    .where(
+      and(
+        eq(agentJoinToken.organizationId, orgContext.activeOrganization.id),
+        eq(agentJoinToken.revoked, false),
+        gt(agentJoinToken.expiresAt, now),
+      ),
+    )
     .orderBy(desc(agentJoinToken.createdAt));
 
   return NextResponse.json({ tokens });
@@ -46,6 +58,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const { session, response } = await requireDashboardSession();
   if (response || !session) return response;
+
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
 
   const requestAudit = buildRequestAuditContext(request);
 
@@ -64,6 +81,7 @@ export async function POST(request: NextRequest) {
   const [created] = await db
     .insert(agentJoinToken)
     .values({
+      organizationId: orgContext.activeOrganization.id,
       tokenHash,
       label: parsed.data.label ?? null,
       maxUses: parsed.data.maxUses,
@@ -117,6 +135,11 @@ export async function DELETE(request: NextRequest) {
   const { session, response } = await requireDashboardSession();
   if (response || !session) return response;
 
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
+
   const requestAudit = buildRequestAuditContext(request);
 
   const tokenId = request.nextUrl.searchParams.get("tokenId");
@@ -131,7 +154,12 @@ export async function DELETE(request: NextRequest) {
       revoked: true,
       updatedAt: new Date(),
     })
-    .where(eq(agentJoinToken.id, tokenId))
+    .where(
+      and(
+        eq(agentJoinToken.id, tokenId),
+        eq(agentJoinToken.organizationId, orgContext.activeOrganization.id),
+      ),
+    )
     .returning({ id: agentJoinToken.id });
 
   if (!revoked) {

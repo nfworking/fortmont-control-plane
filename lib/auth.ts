@@ -8,8 +8,18 @@ import { getRequestPublicIp } from "@/lib/server/request-ip";
 import { schema } from "@/db/schema";
 import { organization } from "better-auth/plugins"
 
+const organizationPlugin = organization({
+  schema: {
+    session: {
+      fields: {
+        activeOrganizationId: "activeOrganizationId",
+      },
+    },
+  },
+})
+
 export const auth = betterAuth({
-   plugins: [nextCookies(),  organization() ],
+   plugins: [nextCookies(), organizationPlugin],
    emailAndPassword: {
     enabled: true,
   },

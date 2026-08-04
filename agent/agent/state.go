@@ -27,6 +27,7 @@ type AgentState struct {
 	Name           string `json:"name"`
 	Description    string `json:"description"`
 	Version        string `json:"version"`
+	OrganizationID string `json:"organizationId,omitempty"`
 }
 
 func ResolveStatePath(overridePath string) (string, error) {

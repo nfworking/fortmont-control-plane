@@ -11,6 +11,22 @@ import { cn } from "@/lib/utils";
 type ApplicationShell1Props = {
   className?: string;
   children: ReactNode;
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  } | null;
+  organizations?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+  activeOrganization?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 };
 
 const DASHBOARD_TITLES: Array<{ path: string; title: string }> = [
@@ -35,7 +51,13 @@ function getDashboardTitle(pathname: string) {
   return match?.title ?? "Dashboard";
 }
 
-export function ApplicationShell1({ className, children }: ApplicationShell1Props) {
+export function ApplicationShell1({
+  className,
+  children,
+  user,
+  organizations = [],
+  activeOrganization,
+}: ApplicationShell1Props) {
   const pathname = usePathname();
   const title = getDashboardTitle(pathname);
 
@@ -49,7 +71,13 @@ export function ApplicationShell1({ className, children }: ApplicationShell1Prop
         } as CSSProperties
       }
     >
-      <AppSidebar variant="inset" className="bg-background text-foreground" />
+      <AppSidebar 
+        variant="inset" 
+        className="bg-background text-foreground" 
+        user={user}
+        organizations={organizations}
+        activeOrganization={activeOrganization}
+      />
       <SidebarInset className="bg-background text-foreground">
         <SiteHeader title={title} />
         {children}

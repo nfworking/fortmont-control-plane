@@ -13,8 +13,9 @@ import (
 )
 
 type RegisterRequest struct {
-	JoinToken    string                 `json:"joinToken"`
-	Name         string                 `json:"name"`
+	JoinToken      string                 `json:"joinToken"`
+	OrganizationID string                 `json:"organizationId,omitempty"`
+	Name           string                 `json:"name"`
 	Description  string                 `json:"description,omitempty"`
 	DeviceID     string                 `json:"deviceId"`
 	Hostname     string                 `json:"hostname"`

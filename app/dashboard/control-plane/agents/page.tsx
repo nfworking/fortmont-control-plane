@@ -79,6 +79,7 @@ export default function ControlPlaneAgentsPage() {
   const [tokenExpiresInHours, setTokenExpiresInHours] = useState(24);
   const [creatingToken, setCreatingToken] = useState(false);
   const [lastGeneratedToken, setLastGeneratedToken] = useState<AgentTokenResult | null>(null);
+  const [orgRefreshToken, setOrgRefreshToken] = useState(0);
 
   const connectedCount = useMemo(
     () => agents.filter((entry) => entry.connected).length,
@@ -91,8 +92,8 @@ export default function ControlPlaneAgentsPage() {
 
     try {
       const [agentsResponse, tokensResponse] = await Promise.all([
-        fetch("/api/v2/agents", { cache: "no-store" }),
-        fetch("/api/v2/agents/join-tokens", { cache: "no-store" }),
+        fetch("/api/v2/organization/agents", { cache: "no-store" }),
+        fetch("/api/v2/organization/agents/join-tokens", { cache: "no-store" }),
       ]);
 
       if (!agentsResponse.ok) {
@@ -124,10 +125,25 @@ export default function ControlPlaneAgentsPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchData();
-  }, [fetchData]);
+  }, [fetchData, orgRefreshToken]);
 
   useEffect(() => {
-    const source = new EventSource("/api/v2/agents/stream");
+    const handleOrganizationChange = () => {
+      setOrgRefreshToken((value) => value + 1);
+    };
+
+    window.addEventListener("organization-changed", handleOrganizationChange);
+    return () => {
+      window.removeEventListener("organization-changed", handleOrganizationChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const source = new EventSource("/api/v2/organization/agents/stream");
+
+    source.addEventListener("connected", () => {
+      setLoading(false);
+    });
 
     source.addEventListener("agents", (event) => {
       try {
@@ -148,7 +164,7 @@ export default function ControlPlaneAgentsPage() {
     return () => {
       source.close();
     };
-  }, [fetchData]);
+  }, [fetchData, orgRefreshToken]);
 
   const sampleJoinCommand = useMemo(() => {
     if (!lastGeneratedToken?.token) return null;
@@ -161,7 +177,7 @@ export default function ControlPlaneAgentsPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/v2/agents/join-tokens", {
+      const response = await fetch("/api/v2/organization/agents/join-tokens", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -207,7 +223,7 @@ export default function ControlPlaneAgentsPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/v2/agents/${id}`, {
+      const response = await fetch(`/api/v2/organization/agents/${id}`, {
         method: "DELETE",
       });
 
@@ -230,7 +246,7 @@ export default function ControlPlaneAgentsPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/v2/agents/join-tokens?tokenId=${encodeURIComponent(tokenId)}`, {
+      const response = await fetch(`/api/v2/organization/agents/join-tokens?tokenId=${encodeURIComponent(tokenId)}`, {
         method: "DELETE",
       });
 

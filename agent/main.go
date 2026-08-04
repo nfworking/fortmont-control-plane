@@ -31,6 +31,7 @@ func main() {
 	version := flag.String("version", "", "Agent version override")
 	stateFile := flag.String("state-file", "", "Override encrypted state file path")
 	resetState := flag.Bool("reset-state", false, "Delete saved state and force new enrollment")
+	organizationID := flag.String("organization-id", "", "Organization ID to enroll into")
 	metricsInterval := flag.Duration("metrics-interval", 15*time.Second, "Interval duration for sending system metrics")
 	flag.Parse()
 
@@ -58,6 +59,7 @@ func main() {
 	resolvedDescription := agent.Pick(strings.TrimSpace(*description), agent.StoredStateValue(storedState, func(s agent.AgentState) string { return s.Description }), "Go sample agent")
 	resolvedVersion := agent.Pick(strings.TrimSpace(*version), agent.StoredStateValue(storedState, func(s agent.AgentState) string { return s.Version }), defaultAgentVersion)
 	resolvedDeviceID := agent.Pick(strings.TrimSpace(*deviceID), agent.StoredStateValue(storedState, func(s agent.AgentState) string { return s.DeviceID }), "")
+	resolvedOrganizationID := agent.Pick(strings.TrimSpace(*organizationID), agent.StoredStateValue(storedState, func(s agent.AgentState) string { return s.OrganizationID }), "")
 
 	if strings.TrimSpace(resolvedDeviceID) == "" {
 		resolvedDeviceID = fmt.Sprintf("sample-%d-%04d", time.Now().Unix(), mrand.Intn(10000))
@@ -82,6 +84,7 @@ func main() {
 	if joinToken != "" {
 		newAuthToken, registerErr := agent.Register(apiClient, base, agent.RegisterRequest{
 			JoinToken:    joinToken,
+			OrganizationID: resolvedOrganizationID,
 			Name:         resolvedName,
 			Description:  resolvedDescription,
 			DeviceID:     resolvedDeviceID,
@@ -136,6 +139,7 @@ func main() {
 		Name:           resolvedName,
 		Description:    resolvedDescription,
 		Version:        resolvedVersion,
+		OrganizationID: resolvedOrganizationID,
 	}); err != nil {
 		log.Printf("state save warning: %v", err)
 	}

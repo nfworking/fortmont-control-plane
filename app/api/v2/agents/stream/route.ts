@@ -1,8 +1,9 @@
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import { requireDashboardSession } from "@/lib/server/agents";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
 function toLiveState(items: Array<typeof agent.$inferSelect>) {
   const now = Date.now();
@@ -22,6 +23,14 @@ export async function GET(request: Request) {
   const { response } = await requireDashboardSession();
   if (response) return response;
 
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return new Response(JSON.stringify({ error: "No active organization selected" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const encoder = new TextEncoder();
   let closed = false;
 
@@ -33,7 +42,11 @@ export async function GET(request: Request) {
       };
 
       const emitSnapshot = async () => {
-        const items = await db.select().from(agent).orderBy(desc(agent.createdAt));
+        const items = await db
+          .select()
+          .from(agent)
+          .where(eq(agent.organizationId, orgContext.activeOrganization!.id))
+          .orderBy(desc(agent.createdAt));
         publish("agents", { agents: toLiveState(items), serverTime: new Date().toISOString() });
       };
 

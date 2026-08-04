@@ -176,6 +176,10 @@ export const agent = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
 
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
     /**
      * Friendly name shown in the dashboard.
      */
@@ -230,6 +234,7 @@ export const agent = pgTable(
       .notNull(),
   },
   (table) => [
+    index("agent_organizationId_idx").on(table.organizationId),
     index("agent_deviceId_idx").on(table.deviceId),
     index("agent_hostname_idx").on(table.hostname),
     index("agent_localIp_idx").on(table.localIp),
@@ -244,6 +249,10 @@ export const agentJoinToken = pgTable(
   "agent_join_token",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
 
     tokenHash: text("token_hash").notNull().unique(),
 
@@ -268,6 +277,7 @@ export const agentJoinToken = pgTable(
       .notNull(),
   },
   (table) => [
+    index("agent_join_token_organizationId_idx").on(table.organizationId),
     index("agent_join_token_hash_idx").on(table.tokenHash),
     index("agent_join_token_expiresAt_idx").on(table.expiresAt),
     index("agent_join_token_revoked_idx").on(table.revoked),
@@ -339,6 +349,8 @@ export const accountRelations = relations(account, ({ one }) => ({
 export const organizationRelations = relations(organization, ({ many }) => ({
   members: many(member),
   invitations: many(invitation),
+  agents: many(agent),
+  agentJoinTokens: many(agentJoinToken),
 }));
 
 export const memberRelations = relations(member, ({ one }) => ({
@@ -364,13 +376,21 @@ export const invitationRelations = relations(invitation, ({ one }) => ({
 }));
 
 export const agentJoinTokenRelations = relations(agentJoinToken, ({ one }) => ({
+  organization: one(organization, {
+    fields: [agentJoinToken.organizationId],
+    references: [organization.id],
+  }),
   createdByUser: one(user, {
     fields: [agentJoinToken.createdByUserId],
     references: [user.id],
   }),
 }));
 
-export const agentRelations = relations(agent, ({ many }) => ({
+export const agentRelations = relations(agent, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [agent.organizationId],
+    references: [organization.id],
+  }),
   auditLogs: many(auditLog),
 }));
 

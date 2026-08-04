@@ -5,9 +5,11 @@ import { db } from "@/db/drizzle";
 import { agent, agentJoinToken } from "@/db/schema";
 import { generateAgentAuthToken, hashAgentAuthToken } from "@/lib/server/agent-auth";
 import { hashJoinToken } from "@/lib/server/agents";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
 export const registerAgentSchema = z.object({
   joinToken: z.string().min(8),
+  organizationId: z.string().min(1).max(255).optional().nullable(),
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional().nullable(),
   deviceId: z.string().min(3).max(255),
@@ -40,10 +42,16 @@ export function normalizeMetadata(
 }
 
 export async function registerAgentWithToken(data: z.infer<typeof registerAgentSchema>) {
+  const orgContext = await getActiveOrganizationContext();
   const now = new Date();
   const agentAuthToken = generateAgentAuthToken();
   const agentAuthTokenHash = hashAgentAuthToken(agentAuthToken);
   const tokenHash = hashJoinToken(data.joinToken);
+  const resolvedOrganizationId = data.organizationId?.trim() || orgContext.activeOrganization?.id || null;
+
+  if (!resolvedOrganizationId) {
+    return { ok: false as const, status: 404, message: "No active organization selected" };
+  }
 
   const [token] = await db
     .select()
@@ -51,6 +59,7 @@ export async function registerAgentWithToken(data: z.infer<typeof registerAgentS
     .where(
       and(
         eq(agentJoinToken.tokenHash, tokenHash),
+        eq(agentJoinToken.organizationId, resolvedOrganizationId),
         eq(agentJoinToken.revoked, false),
         gt(agentJoinToken.expiresAt, now),
       ),
@@ -68,10 +77,11 @@ export async function registerAgentWithToken(data: z.infer<typeof registerAgentS
   const [existing] = await db
     .select()
     .from(agent)
-    .where(eq(agent.deviceId, data.deviceId))
+    .where(and(eq(agent.deviceId, data.deviceId), eq(agent.organizationId, resolvedOrganizationId)))
     .limit(1);
 
   const payload = {
+    organizationId: resolvedOrganizationId,
     name: data.name,
     description: data.description ?? null,
     deviceId: data.deviceId,

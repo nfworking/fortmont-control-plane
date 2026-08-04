@@ -4,7 +4,7 @@ import { user } from "@/db/schema";
 import { db } from "@/db/drizzle";
 import { auth } from "@/lib/auth";
 import { eq } from "drizzle-orm";
-import { redirect } from "next/dist/client/components/navigation";
+import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
 
