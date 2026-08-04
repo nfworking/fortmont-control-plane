@@ -26,6 +26,7 @@ interface SettingsDialogProps {
 
 export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const { data } = authClient.useSession()
+  const userImg = authClient.useSession()?.data?.user?.image ?? null
   const [activeTab, setActiveTab] = useState<
     "profile" | "account" | "api-keys" | "organizations"
   >("profile")
@@ -43,7 +44,8 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     getOrganizations().then(setOrganizations)
   }, [])
 
-  const currentAvatarUrl = avatarUrl ?? data?.user?.image ?? null
+  const currentAvatarUrl = data?.user?.image ?? null
+  console.log(data?.user?.image);
 
   const displayName = data?.user?.name || "User"
   const avatarInitials = displayName
@@ -233,7 +235,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                     <div className="flex items-center gap-6 pb-6 border-b border-zinc-800">
                       <div className="relative group">
                         <Avatar className="w-20 h-20 rounded-full border border-zinc-800 bg-zinc-900">
-                          <AvatarImage src={currentAvatarUrl ?? undefined} alt={displayName} />
+                          <AvatarImage src={userImg ?? undefined} alt={displayName} />
                           <AvatarFallback className="bg-zinc-900 text-zinc-500 text-xl">
                             {avatarInitials || "U"}
                           </AvatarFallback>
