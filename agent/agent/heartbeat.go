@@ -15,6 +15,8 @@ type HeartbeatRequest struct {
 	DeviceID string                 `json:"deviceId"`
 	Version  string                 `json:"version"`
 	Hostname string                 `json:"hostname"`
+	LocalIP  string                 `json:"localIp,omitempty"`
+	PublicIP string                 `json:"publicIp,omitempty"`
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 

@@ -6,11 +6,14 @@ import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
 import { jsonError } from "@/lib/server/agents";
+import { getRequestPublicIp } from "@/lib/server/request-ip";
 
 const heartbeatSchema = z.object({
   deviceId: z.string().min(3).max(255),
   version: z.string().min(1).max(64).optional(),
   hostname: z.string().min(1).max(255).optional(),
+  localIp: z.string().max(64).optional().nullable(),
+  publicIp: z.string().max(64).optional().nullable(),
   metadata: z.record(z.string(), z.unknown()).optional().nullable(),
 });
 
@@ -30,6 +33,7 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
+  const requestPublicIp = getRequestPublicIp(request.headers);
 
   const [updated] = await db
     .update(agent)
@@ -38,6 +42,8 @@ export async function POST(request: NextRequest) {
       lastSeen: now,
       updatedAt: now,
       hostname: parsed.data.hostname ?? existing.hostname,
+      localIp: parsed.data.localIp ?? existing.localIp,
+      publicIp: parsed.data.publicIp ?? requestPublicIp ?? existing.publicIp,
       version: parsed.data.version ?? existing.version,
       metadata: parsed.data.metadata ?? existing.metadata,
       authTokenLastUsedAt: now,

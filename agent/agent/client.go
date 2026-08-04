@@ -18,6 +18,8 @@ type RegisterRequest struct {
 	Description  string                 `json:"description,omitempty"`
 	DeviceID     string                 `json:"deviceId"`
 	Hostname     string                 `json:"hostname"`
+	LocalIP      string                 `json:"localIp,omitempty"`
+	PublicIP     string                 `json:"publicIp,omitempty"`
 	Platform     string                 `json:"platform"`
 	Architecture string                 `json:"architecture"`
 	Version      string                 `json:"version"`
@@ -33,6 +35,8 @@ type ConnectRequest struct {
 	Name         string                 `json:"name,omitempty"`
 	Description  string                 `json:"description,omitempty"`
 	Hostname     string                 `json:"hostname"`
+	LocalIP      string                 `json:"localIp,omitempty"`
+	PublicIP     string                 `json:"publicIp,omitempty"`
 	Platform     string                 `json:"platform"`
 	Architecture string                 `json:"architecture"`
 	Version      string                 `json:"version"`

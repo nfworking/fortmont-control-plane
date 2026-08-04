@@ -125,6 +125,8 @@ export const agent = pgTable(
      * Computer information.
      */
     hostname: text("hostname").notNull(),
+    localIp: text("local_ip"),
+    publicIp: text("public_ip"),
     platform: text("platform").notNull(), // windows | linux | darwin
     architecture: text("architecture").notNull(), // amd64 | arm64
 
@@ -163,6 +165,8 @@ export const agent = pgTable(
   (table) => [
     index("agent_deviceId_idx").on(table.deviceId),
     index("agent_hostname_idx").on(table.hostname),
+    index("agent_localIp_idx").on(table.localIp),
+    index("agent_publicIp_idx").on(table.publicIp),
     index("agent_connected_idx").on(table.connected),
     index("agent_lastSeen_idx").on(table.lastSeen),
     index("agent_authTokenHash_idx").on(table.authTokenHash),

@@ -69,6 +69,14 @@ func main() {
 
 	base = strings.TrimRight(base, "/")
 	apiClient := &http.Client{Timeout: 15 * time.Second}
+	localIP := agent.DetectLocalIPv4()
+	publicIP := agent.DetectPublicIP()
+	if localIP == "" {
+		localIP = "127.0.0.1"
+	}
+	if publicIP == "" {
+		log.Println("public IP lookup failed; API will infer from request headers")
+	}
 	sseClient := &http.Client{}
 
 	if joinToken != "" {
@@ -78,6 +86,8 @@ func main() {
 			Description:  resolvedDescription,
 			DeviceID:     resolvedDeviceID,
 			Hostname:     hostname,
+			LocalIP:      localIP,
+			PublicIP:     publicIP,
 			Platform:     runtime.GOOS,
 			Architecture: runtime.GOARCH,
 			Version:      resolvedVersion,
@@ -103,6 +113,8 @@ func main() {
 			Name:         resolvedName,
 			Description:  resolvedDescription,
 			Hostname:     hostname,
+			LocalIP:      localIP,
+			PublicIP:     publicIP,
 			Platform:     runtime.GOOS,
 			Architecture: runtime.GOARCH,
 			Version:      resolvedVersion,
@@ -138,6 +150,8 @@ func main() {
 		DeviceID: resolvedDeviceID,
 		Version:  resolvedVersion,
 		Hostname: hostname,
+		LocalIP:  localIP,
+		PublicIP: publicIP,
 		Metadata: map[string]interface{}{"sample": true},
 	})
 

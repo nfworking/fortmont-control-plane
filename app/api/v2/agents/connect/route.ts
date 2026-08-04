@@ -6,12 +6,15 @@ import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
 import { jsonError } from "@/lib/server/agents";
+import { getRequestPublicIp } from "@/lib/server/request-ip";
 
 const connectSchema = z.object({
   deviceId: z.string().min(3).max(255),
   name: z.string().min(1).max(120).optional(),
   description: z.string().max(500).optional().nullable(),
   hostname: z.string().min(1).max(255).optional(),
+  localIp: z.string().max(64).optional().nullable(),
+  publicIp: z.string().max(64).optional().nullable(),
   platform: z.string().min(1).max(64).optional(),
   architecture: z.string().min(1).max(64).optional(),
   version: z.string().min(1).max(64).optional(),
@@ -34,6 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date();
+  const requestPublicIp = getRequestPublicIp(request.headers);
 
   const [updated] = await db
     .update(agent)
@@ -41,6 +45,8 @@ export async function POST(request: NextRequest) {
       name: parsed.data.name ?? existing.name,
       description: parsed.data.description ?? existing.description,
       hostname: parsed.data.hostname ?? existing.hostname,
+      localIp: parsed.data.localIp ?? existing.localIp,
+      publicIp: parsed.data.publicIp ?? requestPublicIp ?? existing.publicIp,
       platform: parsed.data.platform ?? existing.platform,
       architecture: parsed.data.architecture ?? existing.architecture,
       version: parsed.data.version ?? existing.version,

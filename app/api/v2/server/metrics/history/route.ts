@@ -6,25 +6,22 @@ export async function GET(request: NextRequest) {
   const range = searchParams.get("range") || "1h"; // 1h, 6h, 24h
   const deviceId = searchParams.get("deviceId");
 
-  // Determine aggregate window based on timeframe
+  // Determine window aggregate size based on timeframe
   const aggregateWindow = range === "24h" ? "15m" : range === "6h" ? "5m" : "1m";
 
-  // createEmpty: true ensures InfluxDB generates timestamped rows for gaps in data
+  // Flux query to fetch downsampled historical time-series data
   const query = `
     from(bucket: "${influxBucket}")
       |> range(start: -${range})
       |> filter(fn: (r) => r["_field"] == "usage_percent")
       ${deviceId ? `|> filter(fn: (r) => r["deviceId"] == "${deviceId}")` : ""}
-      |> aggregateWindow(every: ${aggregateWindow}, fn: mean, createEmpty: true)
+      |> aggregateWindow(every: ${aggregateWindow}, fn: mean, createEmpty: false)
       |> yield(name: "mean")
   `;
 
   try {
     const queryApi = influxClient.getQueryApi(influxOrg);
-    const dataMap: Record<
-      string,
-      { time: string; timestamp: number; cpu: number | null; memory: number | null; storage: number | null }
-    > = {};
+    const dataMap: Record<string, { time: string; timestamp: number; cpu?: number; memory?: number; storage?: number }> = {};
 
     await new Promise<void>((resolve, reject) => {
       queryApi.queryRows(query, {
@@ -42,16 +39,10 @@ export async function GET(request: NextRequest) {
             dataMap[rawTime] = {
               time: formattedTime,
               timestamp: new Date(rawTime).getTime(),
-              cpu: null,
-              memory: null,
-              storage: null,
             };
           }
 
-          // If Influx value exists, round it; if null/undefined, keep as null to trigger chart gap
-          const val = o._value !== null && o._value !== undefined
-            ? Math.round(Number(o._value) * 10) / 10
-            : null;
+          const val = Math.round(Number(o._value || 0) * 10) / 10;
 
           if (o._measurement === "cpu_metrics") {
             dataMap[rawTime].cpu = val;

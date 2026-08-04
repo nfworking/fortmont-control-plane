@@ -45,7 +45,7 @@ export default function ControlPlaneServerPage() {
     async function fetchHistoricalData() {
       try {
         setLoadingHistory(true);
-        const res = await fetch(`/api/v2/server/metrics/history?range=${timeRange}`);
+        const res = await fetch(`/api/v2/server/metrics/history?range=${timeRange}&deviceId=sample-1785765144-5864`);
         if (!res.ok) throw new Error("History fetch failed");
 
         const json = await res.json();
