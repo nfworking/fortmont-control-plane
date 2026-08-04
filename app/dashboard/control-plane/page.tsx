@@ -14,70 +14,36 @@ interface Agent {
   createdAt?: string;
 }
 
-interface LogEntry {
+interface AuditLogEntry {
   id: string;
-  timestamp: string;
-  level: "INFO" | "WARN" | "ERROR" | "SYSTEM";
+  createdAt: string;
+  category: string;
+  action: string;
+  outcome: "success" | "failure" | "denied" | "info" | string;
+  actorType: string;
+  actorEmail?: string | null;
+  deviceId?: string | null;
   message: string;
+  ipAddress?: string | null;
 }
 
 export default function ControlPlaneDashboardPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [sseStatus, setSseStatus] = useState<"connected" | "connecting" | "disconnected">("connecting");
-  const [uptimeSeconds, setUptimeSeconds] = useState<number>(0);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState<boolean>(true);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
-  // 1. Calculate Uptime locally (or hydrate from server)
+  // 1. Connect to live SSE Agents stream
   useEffect(() => {
-    const timer = setInterval(() => {
-      setUptimeSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatUptime = (totalSeconds: number) => {
-    const days = Math.floor(totalSeconds / (3600 * 24));
-    const hours = Math.floor((totalSeconds % (3600 * 24)) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    const parts = [];
-    if (days > 0) parts.push(`${days}d`);
-    if (hours > 0) parts.push(`${hours}h`);
-    if (minutes > 0) parts.push(`${minutes}m`);
-    parts.push(`${seconds}s`);
-
-    return parts.join(" ");
-  };
-
-  // Helper to add log entries dynamically
-  const appendLog = (level: LogEntry["level"], message: string) => {
-    const newLog: LogEntry = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toLocaleTimeString(),
-      level,
-      message,
-    };
-    setLogs((prev) => [newLog, ...prev.slice(0, 49)]); // keep latest 50 logs
-  };
-
-  // 2. Connect to live SSE Agents stream
-  useEffect(() => {
-    appendLog("SYSTEM", "Initializing SSE channel connection to /api/v2/agents/stream...");
     const eventSource = new EventSource("/api/v2/agents/stream");
 
     eventSource.onopen = () => {
       setSseStatus("connected");
-      appendLog("INFO", "SSE Stream established. Receiving agent telemetry.");
     };
 
-    eventSource.addEventListener("connected", (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        appendLog("SYSTEM", `Handshake acknowledged via ${data.protocol || "SSE"}.`);
-      } catch (err) {
-        // ignore parse error
-      }
+    eventSource.addEventListener("connected", () => {
+      // keep this listener to ensure stream handshake is consumed.
     });
 
     eventSource.addEventListener("agents", (event) => {
@@ -87,17 +53,58 @@ export default function ControlPlaneDashboardPage() {
           setAgents(payload.agents);
         }
       } catch (err) {
-        appendLog("ERROR", "Failed to parse incoming agent SSE payload.");
+        console.error("Failed to parse incoming agent SSE payload", err);
       }
     });
 
     eventSource.onerror = () => {
       setSseStatus("disconnected");
-      appendLog("WARN", "SSE Connection dropped. Retrying...");
     };
 
     return () => {
       eventSource.close();
+    };
+  }, []);
+
+  // 2. Load persisted audit log feed for operator visibility
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchAuditLogs = async () => {
+      try {
+        if (mounted) {
+          setAuditError(null);
+        }
+
+        const response = await fetch("/api/v2/audit-logs?limit=50", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Audit fetch failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        if (mounted && Array.isArray(payload.items)) {
+          setAuditLogs(payload.items);
+          setAuditLoading(false);
+        }
+      } catch (error) {
+        if (mounted) {
+          setAuditError("Unable to load audit logs");
+          setAuditLoading(false);
+        }
+      }
+    };
+
+    void fetchAuditLogs();
+    const interval = setInterval(() => {
+      void fetchAuditLogs();
+    }, 15_000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -153,16 +160,7 @@ export default function ControlPlaneDashboardPage() {
         </div>
 
         {/* Server Uptime */}
-        <div className="p-4 rounded-xl border border-border bg-card">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Server Uptime
-          </span>
-          <div className="text-2xl font-bold tracking-tight mt-1 font-mono">
-            {formatUptime(uptimeSeconds)}
-          </div>
-          <span className="text-xs text-emerald-500 mt-1 block">Continuous Process Runtime</span>
-        </div>
-
+        
         {/* Total Agents */}
         <div className="p-4 rounded-xl border border-border bg-card">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -261,45 +259,70 @@ export default function ControlPlaneDashboardPage() {
         </div>
       </div>
 
-      {/* Pure Black Live System Logs Console */}
+      {/* Persisted Audit Logs */}
       <div className="p-5 rounded-xl border border-border bg-card flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-semibold">Live System Logs</h2>
-            <p className="text-xs text-muted-foreground">Streaming real-time control plane events</p>
+            <h2 className="text-base font-semibold">Audit Logs</h2>
+            <p className="text-xs text-muted-foreground">Authentication and agent action history from database</p>
           </div>
-          <button
-            onClick={() => setLogs([])}
-            className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded bg-muted border border-border transition-colors"
-          >
-            Clear Console
-          </button>
+          <span className="text-xs text-muted-foreground">Last 50 events</span>
         </div>
 
-        {/* Pitch Black Pure Black (#000000) Log Container */}
-        <div className="rounded-lg bg-[#000000] text-xs font-mono p-4 border border-border space-y-1.5 h-48 overflow-y-auto">
-          {logs.length === 0 ? (
-            <p className="text-muted-foreground/50 italic">&gt; Console empty. Waiting for events...</p>
+        <div className="rounded-lg border border-border overflow-x-auto">
+          {auditLoading ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">Loading audit events...</div>
+          ) : auditError ? (
+            <div className="p-6 text-center text-xs text-rose-500">{auditError}</div>
+          ) : auditLogs.length === 0 ? (
+            <div className="p-6 text-center text-xs text-muted-foreground">No audit events recorded yet.</div>
           ) : (
-            logs.map((log) => (
-              <div key={log.id} className="flex items-start gap-2">
-                <span className="text-muted-foreground/60 select-none">[{log.timestamp}]</span>
-                <span
-                  className={`font-semibold px-1 rounded text-[10px] ${
-                    log.level === "INFO"
-                      ? "bg-blue-950 text-blue-400"
-                      : log.level === "WARN"
-                      ? "bg-amber-950 text-amber-400"
-                      : log.level === "ERROR"
-                      ? "bg-rose-950 text-rose-400"
-                      : "bg-emerald-950 text-emerald-400"
-                  }`}
-                >
-                  {log.level}
-                </span>
-                <span className="text-zinc-300 break-all">{log.message}</span>
-              </div>
-            ))
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/50 border-b border-border text-muted-foreground uppercase tracking-wider">
+                <tr>
+                  <th className="p-3 font-medium">Time</th>
+                  <th className="p-3 font-medium">Category</th>
+                  <th className="p-3 font-medium">Action</th>
+                  <th className="p-3 font-medium">Outcome</th>
+                  <th className="p-3 font-medium">Actor</th>
+                  <th className="p-3 font-medium">Device / IP</th>
+                  <th className="p-3 font-medium">Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {auditLogs.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-muted/30 transition-colors align-top">
+                    <td className="p-3 whitespace-nowrap text-muted-foreground">
+                      {new Date(entry.createdAt).toLocaleString()}
+                    </td>
+                    <td className="p-3 text-foreground">{entry.category}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{entry.action}</td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium border ${
+                          entry.outcome === "success"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : entry.outcome === "failure" || entry.outcome === "denied"
+                            ? "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                            : "bg-muted text-muted-foreground border-border"
+                        }`}
+                      >
+                        {entry.outcome}
+                      </span>
+                    </td>
+                    <td className="p-3 text-muted-foreground">
+                      {entry.actorEmail || entry.actorType}
+                    </td>
+                    <td className="p-3 text-muted-foreground font-mono">
+                      {entry.deviceId || "n/a"}
+                      <br />
+                      {entry.ipAddress || "n/a"}
+                    </td>
+                    <td className="p-3 text-muted-foreground">{entry.message || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>

@@ -207,6 +207,41 @@ export const agentJoinToken = pgTable(
   ],
 );
 
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    category: text("category").notNull(),
+    action: text("action").notNull(),
+    outcome: text("outcome").notNull(),
+    actorType: text("actor_type").notNull(),
+    userId: text("user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    actorEmail: text("actor_email"),
+    agentId: uuid("agent_id").references(() => agent.id, {
+      onDelete: "set null",
+    }),
+    deviceId: text("device_id"),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    targetType: text("target_type"),
+    targetId: text("target_id"),
+    message: text("message"),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_log_createdAt_idx").on(table.createdAt),
+    index("audit_log_category_idx").on(table.category),
+    index("audit_log_action_idx").on(table.action),
+    index("audit_log_outcome_idx").on(table.outcome),
+    index("audit_log_userId_idx").on(table.userId),
+    index("audit_log_agentId_idx").on(table.agentId),
+    index("audit_log_deviceId_idx").on(table.deviceId),
+  ],
+);
+
 /* ============================================================================
  * Relations
  * ========================================================================== */
@@ -215,6 +250,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   agentJoinTokens: many(agentJoinToken),
+  auditLogs: many(auditLog),
 }));
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -238,6 +274,21 @@ export const agentJoinTokenRelations = relations(agentJoinToken, ({ one }) => ({
   }),
 }));
 
+export const agentRelations = relations(agent, ({ many }) => ({
+  auditLogs: many(auditLog),
+}));
+
+export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  user: one(user, {
+    fields: [auditLog.userId],
+    references: [user.id],
+  }),
+  agent: one(agent, {
+    fields: [auditLog.agentId],
+    references: [agent.id],
+  }),
+}));
+
 /* ============================================================================
  * Schema Export
  * ========================================================================== */
@@ -249,4 +300,5 @@ export const schema = {
   verification,
   agent,
   agentJoinToken,
+  auditLog,
 };

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
+import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
 import { jsonError } from "@/lib/server/agents";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
@@ -22,6 +23,7 @@ const connectSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const requestAudit = buildRequestAuditContext(request);
   const body = await request.json().catch(() => null);
   const parsed = connectSchema.safeParse(body);
 
@@ -58,6 +60,20 @@ export async function POST(request: NextRequest) {
     })
     .where(eq(agent.id, existing.id))
     .returning();
+
+  await recordAuditEvent({
+    category: "agent",
+    action: "agent.connect",
+    outcome: "success",
+    actorType: "agent",
+    agentId: updated.id,
+    deviceId: updated.deviceId,
+    ipAddress: requestAudit.ipAddress,
+    userAgent: requestAudit.userAgent,
+    targetType: "agent",
+    targetId: updated.id,
+    message: "Agent connected and updated profile",
+  });
 
   return NextResponse.json({
     ok: true,

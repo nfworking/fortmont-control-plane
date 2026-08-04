@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
+import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
 import { jsonError, requireDashboardSession } from "@/lib/server/agents";
 
@@ -14,6 +15,10 @@ const unregisterSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const requestAudit = buildRequestAuditContext(request);
+  let dashboardUserId: string | null = null;
+  let dashboardUserEmail: string | null = null;
+
   const body = await request.json().catch(() => null);
   const parsed = unregisterSchema.safeParse(body);
 
@@ -28,8 +33,10 @@ export async function POST(request: NextRequest) {
   }
 
   if (hardDelete || id) {
-    const { response } = await requireDashboardSession();
-    if (response) return response;
+    const { session, response } = await requireDashboardSession();
+    if (response || !session) return response;
+    dashboardUserId = session.user.id;
+    dashboardUserEmail = session.user.email;
   }
 
   if (deviceId && !hardDelete && !id) {
@@ -47,6 +54,22 @@ export async function POST(request: NextRequest) {
       return jsonError("Agent not found", 404);
     }
 
+    await recordAuditEvent({
+      category: "agent",
+      action: "agent.delete",
+      outcome: "success",
+      actorType: "user",
+      userId: dashboardUserId,
+      actorEmail: dashboardUserEmail,
+      agentId: deleted.id,
+      deviceId: deleted.deviceId,
+      ipAddress: requestAudit.ipAddress,
+      userAgent: requestAudit.userAgent,
+      targetType: "agent",
+      targetId: deleted.id,
+      message: "Agent hard deleted",
+    });
+
     return NextResponse.json({ success: true, removed: true, id: deleted.id });
   }
 
@@ -62,6 +85,22 @@ export async function POST(request: NextRequest) {
   if (!updated) {
     return jsonError("Agent not found", 404);
   }
+
+  await recordAuditEvent({
+    category: "agent",
+    action: "agent.unregister",
+    outcome: "success",
+    actorType: id || hardDelete ? "user" : "agent",
+    userId: dashboardUserId,
+    actorEmail: dashboardUserEmail,
+    agentId: updated.id,
+    deviceId: updated.deviceId,
+    ipAddress: requestAudit.ipAddress,
+    userAgent: requestAudit.userAgent,
+    targetType: "agent",
+    targetId: updated.id,
+    message: "Agent marked disconnected",
+  });
 
   return NextResponse.json({ success: true, removed: false, agent: updated });
 }

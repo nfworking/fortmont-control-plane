@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
+import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
 import { jsonError } from "@/lib/server/agents";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
@@ -72,6 +73,8 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
+  const requestAudit = buildRequestAuditContext(request);
+
   const encoder = new TextEncoder();
   let closed = false;
 
@@ -112,6 +115,20 @@ export async function GET(request: NextRequest) {
         protocol: "sse",
         message: "Heartbeat stream established",
         deviceId,
+      });
+
+      await recordAuditEvent({
+        category: "agent",
+        action: "agent.heartbeat_stream.connected",
+        outcome: "success",
+        actorType: "agent",
+        agentId: existing.id,
+        deviceId: existing.deviceId,
+        ipAddress: requestAudit.ipAddress,
+        userAgent: requestAudit.userAgent,
+        targetType: "agent",
+        targetId: existing.id,
+        message: "Agent heartbeat SSE stream connected",
       });
 
       await db
@@ -160,6 +177,20 @@ export async function GET(request: NextRequest) {
             updatedAt: new Date(),
           })
           .where(eq(agent.deviceId, deviceId));
+
+        await recordAuditEvent({
+          category: "agent",
+          action: "agent.heartbeat_stream.disconnected",
+          outcome: "info",
+          actorType: "agent",
+          agentId: existing.id,
+          deviceId: existing.deviceId,
+          ipAddress: requestAudit.ipAddress,
+          userAgent: requestAudit.userAgent,
+          targetType: "agent",
+          targetId: existing.id,
+          message: "Agent heartbeat SSE stream disconnected",
+        });
 
         disconnect();
       });

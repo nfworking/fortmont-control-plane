@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db/drizzle";
 import { agentJoinToken } from "@/db/schema";
+import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import {
   generateJoinToken,
   hashJoinToken,
@@ -46,6 +47,8 @@ export async function POST(request: NextRequest) {
   const { session, response } = await requireDashboardSession();
   if (response || !session) return response;
 
+  const requestAudit = buildRequestAuditContext(request);
+
   const body = await request.json().catch(() => null);
   const parsed = createJoinTokenSchema.safeParse(body ?? {});
 
@@ -82,6 +85,25 @@ export async function POST(request: NextRequest) {
       createdByUserId: agentJoinToken.createdByUserId,
     });
 
+  await recordAuditEvent({
+    category: "agent",
+    action: "agent.join_token.create",
+    outcome: "success",
+    actorType: "user",
+    userId: session.user.id,
+    actorEmail: session.user.email,
+    ipAddress: requestAudit.ipAddress,
+    userAgent: requestAudit.userAgent,
+    targetType: "agent_join_token",
+    targetId: created.id,
+    message: "Created agent join token",
+    metadata: {
+      label: created.label,
+      maxUses: created.maxUses,
+      expiresAt: created.expiresAt,
+    },
+  });
+
   return NextResponse.json(
     {
       token: joinToken,
@@ -92,8 +114,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { response } = await requireDashboardSession();
-  if (response) return response;
+  const { session, response } = await requireDashboardSession();
+  if (response || !session) return response;
+
+  const requestAudit = buildRequestAuditContext(request);
 
   const tokenId = request.nextUrl.searchParams.get("tokenId");
 
@@ -113,6 +137,20 @@ export async function DELETE(request: NextRequest) {
   if (!revoked) {
     return jsonError("Join token not found", 404);
   }
+
+  await recordAuditEvent({
+    category: "agent",
+    action: "agent.join_token.revoke",
+    outcome: "success",
+    actorType: "user",
+    userId: session.user.id,
+    actorEmail: session.user.email,
+    ipAddress: requestAudit.ipAddress,
+    userAgent: requestAudit.userAgent,
+    targetType: "agent_join_token",
+    targetId: revoked.id,
+    message: "Revoked agent join token",
+  });
 
   return NextResponse.json({ success: true, id: revoked.id });
 }

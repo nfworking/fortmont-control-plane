@@ -11,9 +11,13 @@ export async function proxy(request: NextRequest) {
         return NextResponse.redirect(new URL("/login", request.url));
     }
 
+    if(request.nextUrl.pathname.startsWith("/dashboard/control-plane/server")) {
+        return NextResponse.json({ error: "Not Found" }, { status: 404 });
+    }
+
     return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard"], 
+    matcher: ["/dashboard/:path*"], 
 };

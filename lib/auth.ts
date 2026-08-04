@@ -1,7 +1,10 @@
 import { betterAuth } from "better-auth";
+import { createAuthMiddleware } from "better-auth/api";
 import { db } from "@/db/drizzle";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
+import { recordAuditEvent } from "@/lib/server/audit";
+import { getRequestPublicIp } from "@/lib/server/request-ip";
 import { schema } from "@/db/schema";
 
 export const auth = betterAuth({
@@ -9,6 +12,52 @@ export const auth = betterAuth({
    emailAndPassword: {
     enabled: true,
   },
+   hooks: {
+      after: createAuthMiddleware(async (ctx) => {
+         const newSession = ctx.context.newSession;
+         const path = ctx.path;
+
+         if (!newSession || !path) {
+            return;
+         }
+
+         const requestHeaders = ctx.headers ?? new Headers();
+         const ipAddress = getRequestPublicIp(requestHeaders);
+         const userAgent = requestHeaders.get("user-agent");
+
+         if (path === "/sign-in/email") {
+            await recordAuditEvent({
+               category: "auth",
+               action: "auth.sign_in",
+               outcome: "success",
+               actorType: "user",
+               userId: newSession.user.id,
+               actorEmail: newSession.user.email,
+               ipAddress,
+               userAgent,
+               targetType: "session",
+               targetId: newSession.session.id,
+               message: "User signed in",
+            });
+         }
+
+         if (path.startsWith("/sign-up")) {
+            await recordAuditEvent({
+               category: "auth",
+               action: "auth.sign_up",
+               outcome: "success",
+               actorType: "user",
+               userId: newSession.user.id,
+               actorEmail: newSession.user.email,
+               ipAddress,
+               userAgent,
+               targetType: "session",
+               targetId: newSession.session.id,
+               message: "User signed up",
+            });
+         }
+      }),
+   },
  database: drizzleAdapter(db, {
     provider:"pg",
     schema,

@@ -4,6 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import {
+  buildRequestAuditContext,
+  recordAuditEvent,
+} from "@/lib/server/audit";
+import {
   jsonError,
   requireDashboardSession,
 } from "@/lib/server/agents";
@@ -36,8 +40,8 @@ async function listAgents() {
 }
 
 export async function GET() {
-  const { response } = await requireDashboardSession();
-  if (response) return response;
+  const { session, response } = await requireDashboardSession();
+  if (response || !session) return response;
 
   const agents = await listAgents();
 
@@ -45,6 +49,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const requestAudit = buildRequestAuditContext(request);
   const body = await request.json().catch(() => null);
 
   if (!body || typeof body !== "object") {
@@ -64,8 +69,40 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) {
+      await recordAuditEvent({
+        category: "agent",
+        action: "agent.register_with_token",
+        outcome: "failure",
+        actorType: "unknown",
+        deviceId: parsed.data.deviceId,
+        ipAddress: requestAudit.ipAddress,
+        userAgent: requestAudit.userAgent,
+        targetType: "agent",
+        targetId: parsed.data.deviceId,
+        message: result.message,
+      });
       return jsonError(result.message, result.status);
     }
+
+    await recordAuditEvent({
+      category: "agent",
+      action: result.registered ? "agent.register" : "agent.reconnect",
+      outcome: "success",
+      actorType: "agent",
+      agentId: result.agent.id,
+      deviceId: result.agent.deviceId,
+      ipAddress: requestAudit.ipAddress,
+      userAgent: requestAudit.userAgent,
+      targetType: "agent",
+      targetId: result.agent.id,
+      message: result.registered
+        ? "Agent registered via join token"
+        : "Agent reconnected via join token",
+      metadata: {
+        platform: result.agent.platform,
+        hostname: result.agent.hostname,
+      },
+    });
 
     return NextResponse.json({
       agent: result.agent,
@@ -74,8 +111,8 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const { response } = await requireDashboardSession();
-  if (response) return response;
+  const { session, response } = await requireDashboardSession();
+  if (response || !session) return response;
 
   const parsed = createAgentSchema.safeParse(body);
 
@@ -109,6 +146,27 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     })
     .returning();
+
+  await recordAuditEvent({
+    category: "agent",
+    action: "agent.create",
+    outcome: "success",
+    actorType: "user",
+    userId: session.user.id,
+    actorEmail: session.user.email,
+    agentId: created.id,
+    deviceId: created.deviceId,
+    ipAddress: requestAudit.ipAddress,
+    userAgent: requestAudit.userAgent,
+    targetType: "agent",
+    targetId: created.id,
+    message: "Agent created from dashboard API",
+    metadata: {
+      hostname: created.hostname,
+      platform: created.platform,
+      architecture: created.architecture,
+    },
+  });
 
   return NextResponse.json({ agent: created }, { status: 201 });
 }
