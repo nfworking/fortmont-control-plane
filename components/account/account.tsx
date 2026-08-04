@@ -1,0 +1,267 @@
+"use client"
+
+import React, { useState, useEffect } from "react"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
+import {
+  User,
+  Shield,
+  Key,
+  Building2,
+  X,
+  Camera,
+  Copy,
+  Plus,
+  Trash2,
+} from "lucide-react"
+import { authClient } from "@/lib/auth-client"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { CreateOrganizationDialog} from "@/components/forms/create-org-form"
+import { getOrganizations } from "@/server/orgs"
+
+interface SettingsDialogProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+  const [activeTab, setActiveTab] = useState<
+    "profile" | "account" | "api-keys" | "organizations"
+  >("profile")
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; createdAt: Date; slug: string; logo: string | null; metadata: string | null }>>([])
+
+  useEffect(() => {
+    getOrganizations().then(setOrganizations)
+  }, [])
+
+  const navItems = [
+    { id: "profile", label: "Profile", icon: User },
+    { id: "account", label: "Account", icon: Shield },
+    { id: "api-keys", label: "API Keys", icon: Key },
+    { id: "organizations", label: "Organizations", icon: Building2 },
+  ] as const
+  return (
+    <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogPrimitive.Portal>
+        {/* Centered Backdrop Overlay with Blur */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+
+        {/* Dialog Content - Dead Center Viewport */}
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-4xl h-[650px] bg-black border border-zinc-800 rounded-xl shadow-2xl flex overflow-hidden text-white font-sans outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
+          
+          {/* Sidebar */}
+          <aside className="w-64 border-r border-zinc-800 p-4 flex flex-col justify-between bg-black">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between px-2">
+                <DialogPrimitive.Close className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-md transition-colors outline-none">
+                  <X className="w-5 h-5" />
+                  <span className="sr-only">Close</span>
+                </DialogPrimitive.Close>
+              </div>
+
+              <nav className="space-y-1">
+                {navItems.map((item) => {
+                  const Icon = item.icon
+                  const isActive = activeTab === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => setActiveTab(item.id)}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all ${
+                        isActive
+                          ? "bg-zinc-900 text-white"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </nav>
+            </div>
+          </aside>
+
+          {/* Main Content */}
+          <main className="flex-1 flex flex-col bg-black overflow-y-auto">
+            <div className="p-8 max-w-2xl">
+              
+              {/* PROFILE TAB */}
+              {activeTab === "profile" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-tight text-white">Profile</h2>
+                    <p className="text-sm text-zinc-400">Manage your public information and preferences.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Photo Upload */}
+                    <div className="flex items-center gap-6 pb-6 border-b border-zinc-800">
+                      <div className="relative group">
+                        <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden">
+                          <User className="w-10 h-10 text-zinc-500" />
+                        </div>
+                        <label
+                          htmlFor="avatar-upload"
+                          className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Camera className="w-5 h-5 text-white" />
+                        </label>
+                        <input id="avatar-upload" type="file" accept="image/*" className="hidden" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-medium text-white">Profile Picture</h4>
+                        <p className="text-xs text-zinc-400 mt-0.5">PNG, JPG or GIF. Max 5MB.</p>
+                        <label
+                          htmlFor="avatar-upload"
+                          className="inline-block mt-2 px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md hover:bg-zinc-900 cursor-pointer transition-colors"
+                        >
+                          Upload photo
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Inputs */}
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-zinc-300">Display Name</label>
+                        <input
+                          type="text"
+                          defaultValue="Alex Mercer"
+                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-zinc-300">Username</label>
+                        <input
+                          type="text"
+                          defaultValue="alexmercer"
+                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-zinc-300">Bio</label>
+                        <textarea
+                          rows={3}
+                          defaultValue="Enterprise Software Developer building scalable systems."
+                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors resize-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ACCOUNT TAB */}
+              {activeTab === "account" && (
+                <div className="space-y-8">
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-tight text-white">Account</h2>
+                    <p className="text-sm text-zinc-400">Manage security settings and account credentials.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="grid gap-4">
+                      <div className="grid gap-2">
+                        <label className="text-xs font-medium text-zinc-300">Email Address</label>
+                        <input
+                          type="email"
+                          defaultValue="alex.mercer@example.com"
+                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-zinc-800 space-y-4">
+                      <h3 className="text-sm font-medium text-white">Security</h3>
+                      <div className="flex items-center justify-between p-3 border border-zinc-800 rounded-md bg-zinc-900/30">
+                        <div>
+                          <p className="text-sm font-medium text-white">Two-Factor Authentication</p>
+                          <p className="text-xs text-zinc-400">Add an extra layer of security to your account.</p>
+                        </div>
+                        <button className="px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md hover:bg-zinc-900 transition-colors">
+                          Enable
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* API KEYS TAB */}
+              {activeTab === "api-keys" && (
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight text-white">API Keys</h2>
+                      <p className="text-sm text-zinc-400">Manage developer access keys for integration.</p>
+                    </div>
+                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white text-black rounded-md hover:bg-zinc-200 transition-colors">
+                      <Plus className="w-3.5 h-3.5" />
+                      Create Key
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { name: "Production Key", created: "May 12, 2026", key: "sk_live_...9a4f" },
+                      { name: "Development Key", created: "Jul 28, 2026", key: "sk_test_...1b8e" },
+                    ].map((k, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3.5 border border-zinc-800 rounded-md bg-zinc-900/30">
+                        <div>
+                          <p className="text-sm font-medium text-white">{k.name}</p>
+                          <p className="text-xs text-zinc-500 font-mono mt-0.5">{k.key} • Created {k.created}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button className="p-1.5 text-zinc-400 hover:text-white rounded-md transition-colors">
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button className="p-1.5 text-zinc-400 hover:text-red-400 rounded-md transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ORGANIZATIONS TAB */}
+              {activeTab === "organizations" && (
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight text-white">Organizations</h2>
+                      <p className="text-sm text-zinc-400">Manage workspace memberships and teams.</p>
+                    </div>
+                    <Dialog>
+                      
+                      <CreateOrganizationDialog />
+                    </Dialog>
+                  </div>
+
+                  <div className="space-y-3">
+                    {organizations.map((org, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3.5 border border-zinc-800 rounded-md bg-zinc-900/30">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-300">
+                            {org.name[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">{org.name}</p>
+                          </div>
+                        </div>
+                       
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </main>
+
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  )
+}

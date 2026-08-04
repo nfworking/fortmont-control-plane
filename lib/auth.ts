@@ -6,9 +6,10 @@ import { nextCookies } from "better-auth/next-js";
 import { recordAuditEvent } from "@/lib/server/audit";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
 import { schema } from "@/db/schema";
+import { organization } from "better-auth/plugins"
 
 export const auth = betterAuth({
-   plugins: [nextCookies()],
+   plugins: [nextCookies(),  organization() ],
    emailAndPassword: {
     enabled: true,
   },

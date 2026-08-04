@@ -8,7 +8,7 @@ import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 
 // Update this with your actual Control Plane URL
-const CONTROL_PLANE_URL = "https://dash.cloud.fortmont.me"; 
+const CONTROL_PLANE_URL = "/dashboard/control-plane"; 
 
 export default function Homepage() {
   const router = useRouter();
