@@ -16,15 +16,15 @@ type RegisterRequest struct {
 	JoinToken      string                 `json:"joinToken"`
 	OrganizationID string                 `json:"organizationId,omitempty"`
 	Name           string                 `json:"name"`
-	Description  string                 `json:"description,omitempty"`
-	DeviceID     string                 `json:"deviceId"`
-	Hostname     string                 `json:"hostname"`
-	LocalIP      string                 `json:"localIp,omitempty"`
-	PublicIP     string                 `json:"publicIp,omitempty"`
-	Platform     string                 `json:"platform"`
-	Architecture string                 `json:"architecture"`
-	Version      string                 `json:"version"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	Description    string                 `json:"description,omitempty"`
+	DeviceID       string                 `json:"deviceId"`
+	Hostname       string                 `json:"hostname"`
+	LocalIP        string                 `json:"localIp,omitempty"`
+	PublicIP       string                 `json:"publicIp,omitempty"`
+	Platform       string                 `json:"platform"`
+	Architecture   string                 `json:"architecture"`
+	Version        string                 `json:"version"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type RegisterResponse struct {

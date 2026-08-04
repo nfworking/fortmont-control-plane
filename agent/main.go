@@ -83,17 +83,17 @@ func main() {
 
 	if joinToken != "" {
 		newAuthToken, registerErr := agent.Register(apiClient, base, agent.RegisterRequest{
-			JoinToken:    joinToken,
+			JoinToken:      joinToken,
 			OrganizationID: resolvedOrganizationID,
-			Name:         resolvedName,
-			Description:  resolvedDescription,
-			DeviceID:     resolvedDeviceID,
-			Hostname:     hostname,
-			LocalIP:      localIP,
-			PublicIP:     publicIP,
-			Platform:     runtime.GOOS,
-			Architecture: runtime.GOARCH,
-			Version:      resolvedVersion,
+			Name:           resolvedName,
+			Description:    resolvedDescription,
+			DeviceID:       resolvedDeviceID,
+			Hostname:       hostname,
+			LocalIP:        localIP,
+			PublicIP:       publicIP,
+			Platform:       runtime.GOOS,
+			Architecture:   runtime.GOARCH,
+			Version:        resolvedVersion,
 			Metadata: map[string]interface{}{
 				"sample": true,
 				"lang":   "go",
