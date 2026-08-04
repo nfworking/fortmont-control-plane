@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useEffect, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,45 +9,50 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { LogOut, User } from "lucide-react"
-import { authClient } from "@/lib/auth-client"
-import SettingsDialog from "@/components/account/account" // Adjust path to your component
+} from "@/components/ui/dropdown-menu";
+import { LogOut, User } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import SettingsDialog from "@/components/account/account"; // Adjust path to your component
+import router from "next/dist/shared/lib/router/router";
+import { redirect } from "next/dist/client/components/navigation";
 
 type NavUserProps = {
   user?: {
-    name?: string | null
-    email?: string | null
-    avatar?: string | null
-  } | null
-}
+    name?: string | null;
+    email?: string | null;
+    avatar?: string | null;
+  } | null;
+};
 
 export function NavUser({ user }: NavUserProps) {
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    return window.localStorage.getItem("profile-avatar-url")
-  })
-  const { data } = authClient.useSession()
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem("profile-avatar-url");
+  });
+  const { data } = authClient.useSession();
 
   useEffect(() => {
     const handler = (event: Event) => {
-      const avatarEvent = event as CustomEvent<{ imageUrl?: string }>
+      const avatarEvent = event as CustomEvent<{ imageUrl?: string }>;
       if (avatarEvent.detail?.imageUrl) {
-        window.localStorage.setItem("profile-avatar-url", avatarEvent.detail.imageUrl)
-        setAvatarOverride(avatarEvent.detail.imageUrl)
+        window.localStorage.setItem(
+          "profile-avatar-url",
+          avatarEvent.detail.imageUrl,
+        );
+        setAvatarOverride(avatarEvent.detail.imageUrl);
       }
-    }
+    };
 
-    window.addEventListener("profile-avatar-updated", handler)
-    return () => window.removeEventListener("profile-avatar-updated", handler)
-  }, [])
+    window.addEventListener("profile-avatar-updated", handler);
+    return () => window.removeEventListener("profile-avatar-updated", handler);
+  }, []);
 
   const effectiveUser = {
     name: data?.user?.name ?? user?.name ?? "Guest",
     email: data?.user?.email ?? user?.email ?? "user@example.com",
     avatar: avatarOverride ?? data?.user?.image ?? user?.avatar ?? "",
-  }
+  };
 
   const initials = (effectiveUser.name ?? "")
     .split(" ")
@@ -55,7 +60,7 @@ export function NavUser({ user }: NavUserProps) {
     .map((part) => part[0])
     .join("")
     .slice(0, 2)
-    .toUpperCase()
+    .toUpperCase();
 
   return (
     <>
@@ -121,7 +126,15 @@ export function NavUser({ user }: NavUserProps) {
           <DropdownMenuSeparator className="bg-zinc-800" />
 
           <DropdownMenuItem
-            onClick={() => authClient.signOut?.()}
+            onClick={() =>
+              authClient.signOut?.({
+                fetchOptions: {
+                  onSuccess: () => {
+                    redirect("/login"); // redirect to login page
+                  },
+                },
+              })
+            }
             className="gap-2 rounded-lg mx-1 mb-1 cursor-pointer text-red-400 focus:text-red-400 focus:bg-zinc-900"
           >
             <LogOut className="size-4" />
@@ -131,10 +144,10 @@ export function NavUser({ user }: NavUserProps) {
       </DropdownMenu>
 
       {/* Render the modal outside the dropdown tree to prevent layout conflicts */}
-      <SettingsDialog 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+      <SettingsDialog
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </>
-  )
+  );
 }
