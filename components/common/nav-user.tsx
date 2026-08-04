@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -24,12 +24,29 @@ type NavUserProps = {
 
 export function NavUser({ user }: NavUserProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const { data, isPending } = authClient.useSession()
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return window.localStorage.getItem("profile-avatar-url")
+  })
+  const { data } = authClient.useSession()
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const avatarEvent = event as CustomEvent<{ imageUrl?: string }>
+      if (avatarEvent.detail?.imageUrl) {
+        window.localStorage.setItem("profile-avatar-url", avatarEvent.detail.imageUrl)
+        setAvatarOverride(avatarEvent.detail.imageUrl)
+      }
+    }
+
+    window.addEventListener("profile-avatar-updated", handler)
+    return () => window.removeEventListener("profile-avatar-updated", handler)
+  }, [])
 
   const effectiveUser = {
-    name: data?.user?.name ?? "Guest",
-    email: data?.user?.email ?? "user@example.com",
-    avatar: "",
+    name: data?.user?.name ?? user?.name ?? "Guest",
+    email: data?.user?.email ?? user?.email ?? "user@example.com",
+    avatar: avatarOverride ?? data?.user?.image ?? user?.avatar ?? "",
   }
 
   const initials = (effectiveUser.name ?? "")

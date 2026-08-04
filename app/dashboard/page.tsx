@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Server, LogOut, ArrowRight, ShieldCheck } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 
 // Update this with your actual Control Plane URL
@@ -13,6 +15,33 @@ const CONTROL_PLANE_URL = "/dashboard/control-plane";
 export default function Homepage() {
   const router = useRouter();
   const { data, isPending } = authClient.useSession();
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem("profile-avatar-url");
+  });
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const avatarEvent = event as CustomEvent<{ imageUrl?: string }>;
+      if (avatarEvent.detail?.imageUrl) {
+        window.localStorage.setItem("profile-avatar-url", avatarEvent.detail.imageUrl);
+        setAvatarOverride(avatarEvent.detail.imageUrl);
+      }
+    };
+
+    window.addEventListener("profile-avatar-updated", handler);
+    return () => window.removeEventListener("profile-avatar-updated", handler);
+  }, []);
+
+  const displayName = data?.user?.name || "User";
+  const avatarInitials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const currentAvatarUrl = avatarOverride ?? data?.user?.image ?? null;
 
   const handleSignOut = async () => {
     await authClient.signOut({
@@ -70,8 +99,19 @@ export default function Homepage() {
             Loading...
           </div>
         ) : data?.user ? (
-          <div className="mt-6 rounded-lg border border-zinc-800/60 bg-black/40 p-3 text-center text-xs text-zinc-400">
-            Authenticated as <span className="font-medium text-zinc-200">{data.user.email}</span>
+          <div className="mt-6 rounded-lg border border-zinc-800/60 bg-black/40 p-3 text-xs text-zinc-400">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-9 w-9 rounded-full border border-zinc-700/70">
+                <AvatarImage src={currentAvatarUrl ?? undefined} alt={displayName} />
+                <AvatarFallback className="bg-zinc-800 text-zinc-200 text-xs font-semibold uppercase">
+                  {avatarInitials || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="text-zinc-200 font-medium truncate">{displayName}</p>
+                <p className="truncate">{data.user.email}</p>
+              </div>
+            </div>
           </div>
         ) : null}
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-zinc-500">

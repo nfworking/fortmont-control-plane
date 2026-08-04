@@ -14,7 +14,8 @@ import {
   Trash2,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Progress } from "@/components/ui/progress"
 import { CreateOrganizationDialog} from "@/components/forms/create-org-form"
 import { getOrganizations } from "@/server/orgs"
 
@@ -24,14 +25,148 @@ interface SettingsDialogProps {
 }
 
 export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
+  const { data } = authClient.useSession()
   const [activeTab, setActiveTab] = useState<
     "profile" | "account" | "api-keys" | "organizations"
   >("profile")
   const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; createdAt: Date; slug: string; logo: string | null; metadata: string | null }>>([])
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return window.localStorage.getItem("profile-avatar-url")
+  })
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     getOrganizations().then(setOrganizations)
   }, [])
+
+  const currentAvatarUrl = avatarUrl ?? data?.user?.image ?? null
+
+  const displayName = data?.user?.name || "User"
+  const avatarInitials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase()
+
+  async function uploadAvatarFile(file: File) {
+    const contentType = file.type.toLowerCase()
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
+
+    if (!allowedTypes.includes(contentType)) {
+      throw new Error("Unsupported file type. Allowed: JPG, PNG, GIF, WEBP")
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("File is too large. Maximum size is 5MB")
+    }
+
+    const presignResponse = await fetch("/api/v2/profile/avatar/presign", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType,
+        contentLength: file.size,
+      }),
+    })
+
+    if (!presignResponse.ok) {
+      const payload = await presignResponse.json().catch(() => null)
+      throw new Error(payload?.error || "Failed to initialize upload")
+    }
+
+    const presignPayload: {
+      key: string
+      uploadUrl: string
+      requiredHeaders?: {
+        "Content-Type"?: string
+      }
+    } = await presignResponse.json()
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open("PUT", presignPayload.uploadUrl)
+      xhr.setRequestHeader("Content-Type", presignPayload.requiredHeaders?.["Content-Type"] || contentType)
+
+      xhr.upload.onprogress = (event) => {
+        if (!event.lengthComputable) return
+        const progress = Math.min(100, Math.round((event.loaded / event.total) * 100))
+        setUploadProgress(progress)
+      }
+
+      xhr.onerror = () => {
+        reject(new Error("Upload failed due to a network error"))
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setUploadProgress(100)
+          resolve()
+          return
+        }
+
+        reject(new Error(`Upload failed with status ${xhr.status}`))
+      }
+
+      xhr.send(file)
+    })
+
+    const completeResponse = await fetch("/api/v2/profile/avatar/complete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        key: presignPayload.key,
+        contentType,
+      }),
+    })
+
+    if (!completeResponse.ok) {
+      const payload = await completeResponse.json().catch(() => null)
+      throw new Error(payload?.error || "Failed to save profile image")
+    }
+
+    const completePayload: { imageUrl: string } = await completeResponse.json()
+    setAvatarUrl(completePayload.imageUrl)
+    window.localStorage.setItem("profile-avatar-url", completePayload.imageUrl)
+
+    window.dispatchEvent(
+      new CustomEvent("profile-avatar-updated", {
+        detail: { imageUrl: completePayload.imageUrl },
+      }),
+    )
+  }
+
+  async function handleAvatarInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+
+    if (!file) return
+
+    setAvatarError(null)
+    setAvatarSuccess(null)
+    setUploadProgress(0)
+    setIsUploadingAvatar(true)
+
+    try {
+      await uploadAvatarFile(file)
+      setAvatarSuccess("Profile picture updated")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to upload profile picture"
+      setAvatarError(message)
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
 
   const navItems = [
     { id: "profile", label: "Profile", icon: User },
@@ -46,7 +181,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
 
         {/* Dialog Content - Dead Center Viewport */}
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-4xl h-[650px] bg-black border border-zinc-800 rounded-xl shadow-2xl flex overflow-hidden text-white font-sans outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-4xl h-162.5 bg-black border border-zinc-800 rounded-xl shadow-2xl flex overflow-hidden text-white font-sans outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
           
           {/* Sidebar */}
           <aside className="w-64 border-r border-zinc-800 p-4 flex flex-col justify-between bg-black">
@@ -97,26 +232,48 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                     {/* Photo Upload */}
                     <div className="flex items-center gap-6 pb-6 border-b border-zinc-800">
                       <div className="relative group">
-                        <div className="w-20 h-20 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center overflow-hidden">
-                          <User className="w-10 h-10 text-zinc-500" />
-                        </div>
+                        <Avatar className="w-20 h-20 rounded-full border border-zinc-800 bg-zinc-900">
+                          <AvatarImage src={currentAvatarUrl ?? undefined} alt={displayName} />
+                          <AvatarFallback className="bg-zinc-900 text-zinc-500 text-xl">
+                            {avatarInitials || "U"}
+                          </AvatarFallback>
+                        </Avatar>
                         <label
                           htmlFor="avatar-upload"
                           className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         >
                           <Camera className="w-5 h-5 text-white" />
                         </label>
-                        <input id="avatar-upload" type="file" accept="image/*" className="hidden" />
+                        <input
+                          id="avatar-upload"
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                          className="hidden"
+                          disabled={isUploadingAvatar}
+                          onChange={handleAvatarInputChange}
+                        />
                       </div>
-                      <div>
+                      <div className="w-full max-w-xs">
                         <h4 className="text-sm font-medium text-white">Profile Picture</h4>
-                        <p className="text-xs text-zinc-400 mt-0.5">PNG, JPG or GIF. Max 5MB.</p>
+                        <p className="text-xs text-zinc-400 mt-0.5">PNG, JPG, GIF or WEBP. Max 5MB.</p>
                         <label
                           htmlFor="avatar-upload"
-                          className="inline-block mt-2 px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md hover:bg-zinc-900 cursor-pointer transition-colors"
+                          className={`inline-block mt-2 px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md transition-colors ${
+                            isUploadingAvatar ? "cursor-not-allowed opacity-60" : "hover:bg-zinc-900 cursor-pointer"
+                          }`}
                         >
-                          Upload photo
+                          {isUploadingAvatar ? "Uploading..." : "Upload photo"}
                         </label>
+
+                        {isUploadingAvatar && (
+                          <div className="mt-3 space-y-1.5">
+                            <Progress value={uploadProgress} className="h-1.5 bg-zinc-800" />
+                            <p className="text-[11px] text-zinc-400">Uploading {uploadProgress}%</p>
+                          </div>
+                        )}
+
+                        {avatarError && <p className="mt-2 text-[11px] text-red-400">{avatarError}</p>}
+                        {avatarSuccess && <p className="mt-2 text-[11px] text-emerald-400">{avatarSuccess}</p>}
                       </div>
                     </div>
 
@@ -126,7 +283,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                         <label className="text-xs font-medium text-zinc-300">Display Name</label>
                         <input
                           type="text"
-                          defaultValue="Alex Mercer"
+                          defaultValue={displayName}
                           className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
                         />
                       </div>
@@ -233,10 +390,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                       <h2 className="text-xl font-semibold tracking-tight text-white">Organizations</h2>
                       <p className="text-sm text-zinc-400">Manage workspace memberships and teams.</p>
                     </div>
-                    <Dialog>
-                      
-                      <CreateOrganizationDialog />
-                    </Dialog>
+                    <CreateOrganizationDialog />
                   </div>
 
                   <div className="space-y-3">

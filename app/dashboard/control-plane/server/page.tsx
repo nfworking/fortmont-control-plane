@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { authClient } from "@/lib/auth-client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import packageJson from "@/package.json";
 
 interface TelemetryPoint {
@@ -29,6 +30,10 @@ interface CurrentTelemetry {
 
 export default function ControlPlaneServerPage() {
   const { data: session, isPending } = authClient.useSession();
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem("profile-avatar-url");
+  });
   const [serverStatus, setServerStatus] = useState<"healthy" | "degraded" | "offline">("healthy");
   const [timeRange, setTimeRange] = useState<"1h" | "6h" | "24h">("1h");
   
@@ -40,6 +45,19 @@ export default function ControlPlaneServerPage() {
     memoryUsagePercent: null,
     storageUsagePercent: null,
   });
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const avatarEvent = event as CustomEvent<{ imageUrl?: string }>;
+      if (avatarEvent.detail?.imageUrl) {
+        window.localStorage.setItem("profile-avatar-url", avatarEvent.detail.imageUrl);
+        setAvatarOverride(avatarEvent.detail.imageUrl);
+      }
+    };
+
+    window.addEventListener("profile-avatar-updated", handler);
+    return () => window.removeEventListener("profile-avatar-updated", handler);
+  }, []);
 
   useEffect(() => {
     async function fetchHistoricalData() {
@@ -87,6 +105,16 @@ export default function ControlPlaneServerPage() {
     return () => clearInterval(interval);
   }, [timeRange]);
 
+  const displayName = session?.user?.name || "User";
+  const avatarInitials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const currentAvatarUrl = avatarOverride ?? session?.user?.image ?? null;
+
   return (
     <div className="flex flex-col gap-6 p-1 max-w-7xl mx-auto w-full mt-35">
       {/* Header */}
@@ -126,9 +154,12 @@ export default function ControlPlaneServerPage() {
 
         {/* User Badge */}
         <div className="flex items-center gap-3 bg-muted/40 p-2 rounded-lg border border-border/50 text-xs">
-          <div className="h-8 w-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold uppercase">
-            {isPending ? "..." : session?.user?.name?.[0] || session?.user?.email?.[0] || "?"}
-          </div>
+          <Avatar className="h-8 w-8 rounded-full border border-border/70">
+            <AvatarImage src={currentAvatarUrl ?? undefined} alt={displayName} />
+            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold uppercase">
+              {isPending ? "..." : avatarInitials || "?"}
+            </AvatarFallback>
+          </Avatar>
           <div className="flex flex-col">
             <span className="font-medium text-foreground">
               {isPending ? "Loading..." : session?.user?.name || "Authenticated Session"}
