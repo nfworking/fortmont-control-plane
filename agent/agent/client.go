@@ -61,13 +61,13 @@ type RedisEndpoint struct {
 }
 
 type RedisSession struct {
-	Endpoint      RedisEndpoint `json:"endpoint"`
-	Username      string        `json:"username"`
-	Password      string        `json:"password"`
-	ExpiresAt     string        `json:"expiresAt"`
-	PresenceKey   string        `json:"presenceKey"`
-	EventsChannel string        `json:"eventsChannel"`
-	PresenceTTLSec int          `json:"presenceTtlSec"`
+	Endpoint       RedisEndpoint `json:"endpoint"`
+	Username       string        `json:"username"`
+	Password       string        `json:"password"`
+	ExpiresAt      string        `json:"expiresAt"`
+	PresenceKey    string        `json:"presenceKey"`
+	EventsChannel  string        `json:"eventsChannel"`
+	PresenceTTLSec int           `json:"presenceTtlSec"`
 }
 
 type RedisSessionResponse struct {
