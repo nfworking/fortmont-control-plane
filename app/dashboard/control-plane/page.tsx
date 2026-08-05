@@ -82,7 +82,7 @@ export default function ControlPlaneDashboardPage() {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    const mounted = true;
 
     const loadOrganization = async () => {
       try {
@@ -126,7 +126,7 @@ export default function ControlPlaneDashboardPage() {
           setAuditLogs(payload.items);
           setAuditLoading(false);
         }
-      } catch (error) {
+      } catch {
         if (mounted) {
           setAuditError("Unable to load audit logs");
           setAuditLoading(false);

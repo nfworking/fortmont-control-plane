@@ -51,7 +51,7 @@ export function NavUser({ user }: NavUserProps) {
   const effectiveUser = {
     name: data?.user?.name ?? user?.name ?? "Guest",
     email: data?.user?.email ?? user?.email ?? "user@example.com",
-    avatar: avatarOverride ?? data?.user?.image ?? user?.avatar ?? "",
+    avatar: data?.user?.image ?? "",
   };
 
   const initials = (effectiveUser.name ?? "")

@@ -1,252 +1,362 @@
 'use client';
 
-import type { Icon } from '@tabler/icons-react';
-import {
-  IconCircleCheckFilled,
-  IconFolder,
-  IconPlug,
-  IconRocket,
-  IconUsers,
-} from '@tabler/icons-react';
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  IconFileText,
+  IconUser,
+  IconShieldLock,
+  IconBuilding,
+  IconPlug,
+  IconCheck,
+  IconArrowRight,
+  IconArrowLeft,
+  IconPlus,
+  IconX,
+} from '@tabler/icons-react';
+import { createAuthClient } from 'better-auth/react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { markCurrentUserOnboarded } from '@/server/users';
 
-interface StepData {
+// Initialize better-auth client
+const authClient = createAuthClient();
+
+interface StepConfig {
+  id: string;
   title: string;
   description: string;
-  icon: Icon;
-  actionLabel: string;
+  icon: React.ElementType;
+  isRequired: boolean;
 }
 
-const steps: StepData[] = [
+const STEPS: StepConfig[] = [
   {
-    title: 'Create your workspace',
-    description:
-      'Name your workspace and pick a URL. This is where your team will collaborate on everything.',
-    icon: IconRocket,
-    actionLabel: 'Get started',
+    id: 'terms',
+    title: 'Terms & Conditions',
+    description: 'Please review and accept our terms to continue using the platform.',
+    icon: IconFileText,
+    isRequired: true,
   },
   {
-    title: 'Invite your team',
-    description:
-      'Add teammates by email so everyone can collaborate in real time across projects.',
-    icon: IconUsers,
-    actionLabel: 'Send invites',
+    id: 'profile',
+    title: 'Profile Information',
+    description: 'Set up your personal details to personalize your experience.',
+    icon: IconUser,
+    isRequired: true,
   },
   {
-    title: 'Set up your first project',
-    description:
-      'Create a project to organize tasks, docs, and milestones all in one place.',
-    icon: IconFolder,
-    actionLabel: 'Create project',
+    id: 'mfa',
+    title: 'MFA Setup',
+    description: 'Secure your account with two-factor authentication.',
+    icon: IconShieldLock,
+    isRequired: true,
   },
   {
-    title: 'Connect your tools',
-    description:
-      'Link Slack, GitHub, or Figma to keep your workflow in sync automatically.',
+    id: 'org',
+    title: 'Organization Details',
+    description: 'Join an existing workspace or create a new one for your team.',
+    icon: IconBuilding,
+    isRequired: true,
+  },
+  {
+    id: 'plugins',
+    title: 'Browse Plugins',
+    description: 'Enhance your workflow by discovering integrations (Optional).',
     icon: IconPlug,
-    actionLabel: 'Browse integrations',
+    isRequired: false,
   },
 ];
 
-function getIconColor(isCompleted: boolean, isActive: boolean) {
-  if (isCompleted) {
-    return 'text-muted-foreground/30';
-  }
-  if (isActive) {
-    return 'text-primary';
-  }
-  return 'text-muted-foreground/40';
-}
+export function DynamicOnboardingFlow() {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [orgMode, setOrgMode] = useState<'create' | 'join'>('create');
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
 
-function getTitleClass(isCompleted: boolean, isActive: boolean) {
-  if (isCompleted) {
-    return 'text-muted-foreground/50 line-through';
-  }
-  if (isActive) {
-    return 'text-foreground';
-  }
-  return 'text-muted-foreground';
-}
+  const step = STEPS[currentStep];
+  const isFirstStep = currentStep === 0;
+  const isLastStep = currentStep === STEPS.length - 1;
 
-function StepIndicator({
-  index,
-  isCompleted,
-  isActive,
-}: {
-  index: number;
-  isCompleted: boolean;
-  isActive: boolean;
-}) {
-  if (isCompleted) {
-    return (
-      <div className="flex size-7 items-center justify-center">
-        <IconCircleCheckFilled
-          aria-hidden="true"
-          className="size-7 text-emerald-500"
-        />
-      </div>
-    );
-  }
-  return (
-    <div
-      className={cn(
-        'flex size-7 items-center justify-center rounded-full font-semibold text-xs',
-        isActive
-          ? 'bg-primary text-primary-foreground'
-          : 'bg-muted text-muted-foreground'
-      )}
-    >
-      {index + 1}
-    </div>
-  );
-}
+  const handleNext = async () => {
+    if (!isLastStep) {
+      setCurrentStep((prev) => prev + 1);
+      return;
+    }
 
-function StepCard({
-  step,
-  index,
-  isCompleted,
-  isActive,
-  onComplete,
-}: {
-  step: StepData;
-  index: number;
-  isCompleted: boolean;
-  isActive: boolean;
-  onComplete: () => void;
-}) {
-  const StepIcon = step.icon;
+    setIsCompleting(true);
+    try {
+      await markCurrentUserOnboarded();
+      window.location.href = '/dashboard/control-plane';
+    } catch (error) {
+      console.error('Failed to complete onboarding:', error);
+      setIsCompleting(false);
+    }
+  };
 
-  return (
-    <div
-      className={cn(
-        'rounded-lg border p-4 transition-colors',
-        isActive && 'border-primary/30 bg-muted/50',
-        !isActive && 'border-border bg-background'
-      )}
-    >
-      <div className="flex gap-3">
-        <div className="mt-0.5 shrink-0">
-          <StepIndicator
-            index={index}
-            isActive={isActive}
-            isCompleted={isCompleted}
-          />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <p
-                className={cn(
-                  'font-medium leading-6',
-                  getTitleClass(isCompleted, isActive)
-                )}
-              >
-                {step.title}
-              </p>
-              <p
-                className={cn(
-                  'mt-0.5 text-sm leading-5',
-                  isActive
-                    ? 'text-muted-foreground'
-                    : 'text-muted-foreground/60'
-                )}
-              >
-                {step.description}
-              </p>
-              {isActive && (
-                <Button className="mt-3" onClick={onComplete} size="sm">
-                  <StepIcon
-                    aria-hidden="true"
-                    className="-ml-0.5 size-4 shrink-0"
-                  />
-                  {step.actionLabel}
-                </Button>
-              )}
-            </div>
-            <StepIcon
-              aria-hidden="true"
-              className={cn(
-                'mt-0.5 size-5 shrink-0',
-                getIconColor(isCompleted, isActive)
-              )}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+  const handleBack = () => {
+    if (!isFirstStep) setCurrentStep((prev) => prev - 1);
+  };
 
-export function Onboarding02() {
-  const [completedSteps, setCompletedSteps] = useState<Set<number>>(
-    () => new Set([0])
-  );
+  const handleDeclineTerms = async () => {
+    setIsLoggingOut(true);
+    try {
+      await authClient.signOut();
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+      setIsLoggingOut(false);
+    }
+  };
 
-  const currentStep = steps.findIndex((_, i) => !completedSteps.has(i));
-  const completedCount = completedSteps.size;
-  const allDone = completedCount === steps.length;
-
-  const handleComplete = (index: number) => {
-    setCompletedSteps((prev) => {
-      const next = new Set(prev);
-      next.add(index);
-      return next;
-    });
+  const handleAcceptTerms = () => {
+    void handleNext();
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background p-4">
-      <div className="w-full max-w-xl">
-        <div className="mb-6">
-          <h3 className="font-semibold text-foreground text-lg">
-            Set up your workspace
-          </h3>
-          <p className="mt-1 text-muted-foreground text-sm">
-            Complete these steps to get your team up and running
-          </p>
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {allDone ? (
-                  <span className="font-medium text-emerald-600">
-                    All done 🎉
-                  </span>
-                ) : (
-                  <>
-                    <span className="font-medium text-foreground">
-                      {completedCount}
-                    </span>{' '}
-                    of {steps.length} completed
-                  </>
-                )}
-              </span>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                style={{
-                  width: `${(completedCount / steps.length) * 100}%`,
-                }}
-              />
-            </div>
+    <div className="flex min-h-dvh items-center justify-center bg-muted/30 p-4">
+      {/* Container resized to max-w-2xl and p-8 for a roomier feel */}
+      <motion.div
+        layout
+        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+        className="w-full max-w-2xl overflow-hidden rounded-2xl border bg-card p-8 shadow-md"
+      >
+        {/* Step Indicator Header */}
+        <div className="mb-6 flex items-center justify-between border-b pb-5">
+          <div className="flex items-center gap-2">
+            {STEPS.map((s, idx) => {
+              const isActive = idx === currentStep;
+              const isCompleted = idx < currentStep;
+
+              return (
+                <div key={s.id} className="flex items-center">
+                  <div
+                    className={cn(
+                      'flex size-8 items-center justify-center rounded-full text-xs font-semibold transition-colors',
+                      isCompleted && 'bg-emerald-500 text-white',
+                      isActive && 'bg-primary text-primary-foreground',
+                      !isActive && !isCompleted && 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {isCompleted ? <IconCheck className="size-4" /> : idx + 1}
+                  </div>
+                  {idx < STEPS.length - 1 && (
+                    <div
+                      className={cn(
+                        'mx-2 h-0.5 w-6 transition-colors md:w-8',
+                        idx < currentStep ? 'bg-emerald-500' : 'bg-muted'
+                      )}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
+          <span className="text-xs font-medium text-muted-foreground">
+            Step {currentStep + 1} of {STEPS.length}
+          </span>
         </div>
 
-        <div className="space-y-3">
-          {steps.map((step, index) => (
-            <StepCard
-              index={index}
-              isActive={index === currentStep}
-              isCompleted={completedSteps.has(index)}
-              key={step.title}
-              onComplete={() => handleComplete(index)}
-              step={step}
-            />
-          ))}
-        </div>
-      </div>
+        {/* Dynamic Content Frame */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={step.id}
+            initial={{ opacity: 0, x: 15 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -15 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-5"
+          >
+            {/* Step Header */}
+            <div>
+              <div className="flex items-center gap-2.5">
+                <step.icon className="size-6 text-primary" />
+                <h3 className="font-semibold text-foreground text-xl">
+                  {step.title}
+                </h3>
+                {!step.isRequired && (
+                  <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    Optional
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-muted-foreground text-sm">
+                {step.description}
+              </p>
+            </div>
+
+            {/* Step 0: Terms & Conditions */}
+            {step.id === 'terms' && (
+              <div className="space-y-4 pt-1">
+                <div className="h-64 overflow-y-auto rounded-lg border bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground space-y-3">
+                  <p className="font-medium text-foreground">Last Updated: August 2026</p>
+                  <p>
+                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+                  </p>
+                  <p>
+                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                  </p>
+                  <p>
+                    Curabitur pretium tiddunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula.
+                  </p>
+                  <p>
+                    Phasellus dolor elit, pellentesque a, facilisis vel, egestas non, text. Fusce aliquet pede justo. Ut a nisl id ante tempus hendrerit. Proin pretium, leo ac pellentesque mollis, felis nunc ultrices eros, sed gravida augue augue mollis justo.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2">
+                  <Button
+                    variant="outline"
+                    color="destructive"
+                    onClick={handleDeclineTerms}
+                    disabled={isLoggingOut}
+                    size="sm"
+                    className="gap-1.5 text-red-600 hover:text-red-700"
+                  >
+                    <IconX className="size-4" />
+                    {isLoggingOut ? 'Signing out...' : 'Decline & Logout'}
+                  </Button>
+                  <Button onClick={handleAcceptTerms} size="sm" className="gap-1.5">
+                    <IconCheck className="size-4" />
+                    Accept Terms
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 1: Profile Information */}
+            {step.id === 'profile' && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="first-name">First Name</Label>
+                    <Input id="first-name" placeholder="John" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="last-name">Last Name</Label>
+                    <Input id="last-name" placeholder="Doe" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">Work Email</Label>
+                  <Input id="email" type="email" placeholder="john@company.com" />
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: MFA Setup */}
+            {step.id === 'mfa' && (
+              <div className="space-y-4 pt-2">
+                <div className="rounded-lg border p-4 text-xs text-muted-foreground bg-muted/40">
+                  Scan the QR code below with your authenticator app (1Password, Authy, or Google Authenticator) and enter the generated code.
+                </div>
+                <div className="flex justify-center py-2">
+                  <div className="flex size-36 items-center justify-center rounded-xl border border-dashed bg-muted/20 text-xs text-muted-foreground font-mono">
+                    [QR Code Placeholder]
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="mfa-code">Verification Code</Label>
+                  <Input id="mfa-code" placeholder="123 456" maxLength={6} className="text-center font-mono tracking-widest text-lg" />
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Organization Setup */}
+            {step.id === 'org' && (
+              <div className="space-y-5 pt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant={orgMode === 'create' ? 'default' : 'outline'}
+                    onClick={() => setOrgMode('create')}
+                    className="w-full justify-start gap-2 h-11"
+                  >
+                    <IconPlus className="size-4" />
+                    Create Organization
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={orgMode === 'join' ? 'default' : 'outline'}
+                    onClick={() => setOrgMode('join')}
+                    className="w-full justify-start gap-2 h-11"
+                  >
+                    <IconBuilding className="size-4" />
+                    Join Existing
+                  </Button>
+                </div>
+
+                {orgMode === 'create' ? (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="org-name">Organization Name</Label>
+                      <Input id="org-name" placeholder="Acme Inc." />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="org-slug">Workspace URL</Label>
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <span className="shrink-0 font-mono text-xs">app.com/</span>
+                        <Input id="org-slug" placeholder="acme" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="org-code">Invite Code / Org ID</Label>
+                    <Input id="org-code" placeholder="e.g. org_987654" />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 4: Browse Plugins */}
+            {step.id === 'plugins' && (
+              <div className="space-y-3 pt-2">
+                <div className="grid grid-cols-1 gap-3">
+                  {[
+                    { name: 'GitHub Integration', desc: 'Sync pull requests, commits, and issue tracking.' },
+                    { name: 'Slack Bot', desc: 'Get real-time notification alerts directly in your channels.' },
+                    { name: 'Figma Embed', desc: 'Preview live UI/UX design components inside tasks.' },
+                  ].map((plugin) => (
+                    <label
+                      key={plugin.name}
+                      className="flex cursor-pointer items-start gap-3.5 rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                    >
+                      <input type="checkbox" className="mt-1 rounded border-muted size-4" />
+                      <div>
+                        <p className="font-medium text-sm text-foreground">{plugin.name}</p>
+                        <p className="text-xs text-muted-foreground">{plugin.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Footer Navigation (standard navigation across non-Terms steps) */}
+        {step.id !== 'terms' && (
+          <div className="mt-8 flex items-center justify-between border-t pt-5">
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              disabled={isFirstStep}
+              className="gap-1.5 text-xs"
+              size="sm"
+            >
+              <IconArrowLeft className="size-3.5" />
+              Back
+            </Button>
+
+            <Button onClick={() => void handleNext()} disabled={isCompleting} className="gap-1.5 text-xs" size="sm">
+              {isLastStep ? (isCompleting ? 'Finishing...' : 'Finish') : step.isRequired ? 'Continue' : 'Skip / Finish'}
+              {!isLastStep && <IconArrowRight className="size-3.5" />}
+            </Button>
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 }

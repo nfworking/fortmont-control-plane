@@ -43,6 +43,13 @@
       "when": 1785892200000,
       "tag": "0005_org_scoped_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785956400000,
+      "tag": "0006_user_onboarded",
+      "breakpoints": true
     }
   ]
 }

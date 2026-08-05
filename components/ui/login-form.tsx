@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { authClient } from "@/lib/auth-client";
 
 import { cn } from "@/lib/utils";
 import { signIn } from "@/server/users";
@@ -57,10 +58,23 @@ export function LoginForm({
         password: values.password,
       });
 
-      router.push("/dashboard");
+      router.push("/dashboard/control-plane");
     } catch {
       setError("root", {
         message: "We couldn’t sign you in. Please check your credentials and try again.",
+      });
+    }
+  };
+
+  const onGitHubSignIn = async () => {
+    try {
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: "/dashboard/control-plane",
+      });
+    } catch {
+      setError("root", {
+        message: "We couldn’t start GitHub sign-in. Please try again.",
       });
     }
   };
@@ -76,11 +90,11 @@ export function LoginForm({
           <form onSubmit={handleSubmit(onSubmit)}>
             <FieldGroup>
               <Field>
-                <Button variant="outline" type="button">
+                <Button variant="outline" type="button" onClick={onGitHubSignIn}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
                     <path
-                      d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"
-                      fill="blue"
+                      d="M12 .296a12 12 0 0 0-3.794 23.39c.6.11.82-.258.82-.577v-2.165c-3.338.726-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.09-.744.082-.729.082-.729 1.205.085 1.838 1.237 1.838 1.237 1.07 1.834 2.809 1.304 3.494.997.108-.775.418-1.305.76-1.605-2.665-.305-5.467-1.333-5.467-5.931 0-1.31.468-2.381 1.236-3.221-.124-.303-.536-1.527.117-3.182 0 0 1.008-.322 3.301 1.23a11.5 11.5 0 0 1 6.01 0c2.292-1.552 3.299-1.23 3.299-1.23.654 1.655.242 2.879.119 3.182.77.84 1.235 1.911 1.235 3.221 0 4.61-2.807 5.624-5.48 5.922.43.372.814 1.103.814 2.222v3.293c0 .322.216.694.825.576A12 12 0 0 0 12 .296"
+                      fill="currentColor"
                     />
                   </svg>
                   Login with Github

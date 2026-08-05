@@ -20,6 +20,26 @@ const organizationPlugin = organization({
 
 export const auth = betterAuth({
    plugins: [nextCookies(), organizationPlugin],
+   socialProviders: {
+      github: {
+         clientId: process.env.GITHUB_CLIENT_ID as string,
+         clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+         scope: ["read:user", "user:email"],
+         mapProfileToUser: (profile) => ({
+            email:
+               profile.email ?? `${String(profile.id)}@github.placeholder.local`,
+         }),
+      },
+   },
+    user: {
+      additionalFields: {
+         onboarded: {
+            type: "boolean",
+            required: false,
+            defaultValue: false,
+         },
+      },
+   },
    emailAndPassword: {
     enabled: true,
   },

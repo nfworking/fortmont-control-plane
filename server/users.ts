@@ -54,3 +54,21 @@ export const getCurrentUser = async () => {
     currentUser,
   };
 };
+
+export const markCurrentUserOnboarded = async () => {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  await db
+    .update(user)
+    .set({
+      onboarded: true,
+      updatedAt: new Date(),
+    })
+    .where(eq(user.id, session.user.id));
+};

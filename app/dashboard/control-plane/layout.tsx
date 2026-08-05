@@ -1,6 +1,7 @@
 import { ApplicationShell1 } from "@/components/dashboard/application-shell1";
 import { getActiveOrganization, getOrganizations } from "@/server/orgs";
 import { getCurrentUser } from "@/server/users";
+import { redirect } from "next/navigation";
 
 export default async function DashboardGroupLayout({
   children,
@@ -8,6 +9,11 @@ export default async function DashboardGroupLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
+
+  if (!user.currentUser.onboarded) {
+    redirect("/onboarding");
+  }
+
   const organizations = await getOrganizations();
   const activeOrganization = await getActiveOrganization(user.currentUser.id);
 

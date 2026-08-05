@@ -1,10 +1,18 @@
-import { Onboarding02 } from "@/components/onboarding-02";
-import { GridBackground } from "@/components/ui/grid-bg";
+import { DynamicOnboardingFlow } from "@/components/onboarding-02";
+import { getCurrentUser } from "@/server/users";
+import { redirect } from "next/navigation";
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const user = await getCurrentUser();
+
+  if (user.currentUser.onboarded) {
+    redirect("/dashboard/control-plane");
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2">
-      <Onboarding02 />
-    </div>
+       
+    
+      <DynamicOnboardingFlow />
+
   );
 }
