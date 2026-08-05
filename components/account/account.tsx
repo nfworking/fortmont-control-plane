@@ -12,6 +12,7 @@ import {
   Copy,
   Plus,
   Trash2,
+  Loader2,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -24,13 +25,57 @@ interface SettingsDialogProps {
   onClose: () => void
 }
 
+type OrganizationSummary = {
+  id: string
+  name: string
+  createdAt: Date
+  slug: string
+  logo: string | null
+  metadata: string | null
+}
+
+type JoinLink = {
+  id: string
+  label: string | null
+  enabled: boolean
+  createdAt: string
+  updatedAt?: string
+}
+
+type JoinRequestItem = {
+  id: string
+  status: string
+  requestedAt: string
+  decidedAt: string | null
+  userId: string
+  userName: string
+  userEmail: string
+  userImage: string | null
+}
+
+function isAdminRole(roleValue: string | null | undefined) {
+  if (!roleValue) return false
+  const roles = roleValue
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+
+  return roles.includes("owner") || roles.includes("admin")
+}
+
 export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const { data } = authClient.useSession()
   const userImg = authClient.useSession()?.data?.user?.image ?? null
   const [activeTab, setActiveTab] = useState<
     "profile" | "account" | "api-keys" | "organizations"
   >("profile")
-  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; createdAt: Date; slug: string; logo: string | null; metadata: string | null }>>([])
+  const [organizations, setOrganizations] = useState<OrganizationSummary[]>([])
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(null)
+  const [activeMemberRole, setActiveMemberRole] = useState<string | null>(null)
+  const [joinLink, setJoinLink] = useState<JoinLink | null>(null)
+  const [joinRequests, setJoinRequests] = useState<JoinRequestItem[]>([])
+  const [generatedJoinLinkUrl, setGeneratedJoinLinkUrl] = useState<string | null>(null)
+  const [orgAdminBusy, setOrgAdminBusy] = useState(false)
+  const [orgAdminError, setOrgAdminError] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
     if (typeof window === "undefined") return null
     return window.localStorage.getItem("profile-avatar-url")
@@ -43,6 +88,177 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   useEffect(() => {
     getOrganizations().then(setOrganizations)
   }, [])
+
+  const loadAdminData = async () => {
+    const [linkResponse, requestsResponse] = await Promise.all([
+      fetch("/api/v2/organization/join-links", { cache: "no-store" }),
+      fetch("/api/v2/organization/join-requests?status=pending", { cache: "no-store" }),
+    ])
+
+    if (!linkResponse.ok) {
+      const body = await linkResponse.json().catch(() => null)
+      throw new Error(body?.error ?? "Failed to load join link")
+    }
+
+    if (!requestsResponse.ok) {
+      const body = await requestsResponse.json().catch(() => null)
+      throw new Error(body?.error ?? "Failed to load join requests")
+    }
+
+    const linkPayload = await linkResponse.json()
+    const requestsPayload = await requestsResponse.json()
+
+    setJoinLink((linkPayload?.link ?? null) as JoinLink | null)
+    setJoinRequests((requestsPayload?.requests ?? []) as JoinRequestItem[])
+  }
+
+  const selectOrganization = async (organizationId: string) => {
+    setOrgAdminBusy(true)
+    setOrgAdminError(null)
+    setGeneratedJoinLinkUrl(null)
+
+    try {
+      await authClient.organization.setActive({ organizationId })
+      window.dispatchEvent(new CustomEvent("organization-changed"))
+
+      const roleResult = (await authClient.organization.getActiveMemberRole()) as {
+        data?: { role?: string } | string | null
+      }
+
+      const resolvedRole =
+        typeof roleResult?.data === "string"
+          ? roleResult.data
+          : roleResult?.data?.role ?? null
+
+      setSelectedOrganizationId(organizationId)
+      setActiveMemberRole(resolvedRole)
+
+      if (isAdminRole(resolvedRole)) {
+        await loadAdminData()
+      } else {
+        setJoinLink(null)
+        setJoinRequests([])
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load organization details"
+      setOrgAdminError(message)
+    } finally {
+      setOrgAdminBusy(false)
+    }
+  }
+
+  const rotateJoinLink = async () => {
+    setOrgAdminBusy(true)
+    setOrgAdminError(null)
+
+    try {
+      const response = await fetch("/api/v2/organization/join-links", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ label: "Account settings" }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to rotate join link")
+      }
+
+      if (typeof payload?.joinUrl === "string") {
+        setGeneratedJoinLinkUrl(payload.joinUrl)
+      }
+
+      await loadAdminData()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to rotate join link"
+      setOrgAdminError(message)
+    } finally {
+      setOrgAdminBusy(false)
+    }
+  }
+
+  const toggleJoinLink = async (enabled: boolean) => {
+    setOrgAdminBusy(true)
+    setOrgAdminError(null)
+
+    try {
+      const response = await fetch("/api/v2/organization/join-links", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ enabled, linkId: joinLink?.id ?? null }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to update join link")
+      }
+
+      await loadAdminData()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update join link"
+      setOrgAdminError(message)
+    } finally {
+      setOrgAdminBusy(false)
+    }
+  }
+
+  const revokeJoinLink = async () => {
+    setOrgAdminBusy(true)
+    setOrgAdminError(null)
+
+    try {
+      const linkId = joinLink?.id
+      const url = linkId
+        ? `/api/v2/organization/join-links?linkId=${encodeURIComponent(linkId)}`
+        : "/api/v2/organization/join-links"
+
+      const response = await fetch(url, {
+        method: "DELETE",
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to revoke join link")
+      }
+
+      await loadAdminData()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to revoke join link"
+      setOrgAdminError(message)
+    } finally {
+      setOrgAdminBusy(false)
+    }
+  }
+
+  const decideRequest = async (requestId: string, decision: "approve" | "reject") => {
+    setOrgAdminBusy(true)
+    setOrgAdminError(null)
+
+    try {
+      const response = await fetch(`/api/v2/organization/join-requests/${encodeURIComponent(requestId)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ decision }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Failed to update join request")
+      }
+
+      await loadAdminData()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update join request"
+      setOrgAdminError(message)
+    } finally {
+      setOrgAdminBusy(false)
+    }
+  }
 
   const currentAvatarUrl = data?.user?.image ?? null
   console.log(data?.user?.image);
@@ -395,21 +611,154 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                     <CreateOrganizationDialog />
                   </div>
 
+                  {orgAdminError ? <p className="text-xs text-red-400">{orgAdminError}</p> : null}
+
                   <div className="space-y-3">
-                    {organizations.map((org, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3.5 border border-zinc-800 rounded-md bg-zinc-900/30">
+                    {organizations.map((org) => (
+                      <button
+                        type="button"
+                        key={org.id}
+                        onClick={() => void selectOrganization(org.id)}
+                        className={`w-full text-left flex items-center justify-between p-3.5 border rounded-md transition-colors ${
+                          selectedOrganizationId === org.id
+                            ? "border-zinc-600 bg-zinc-900"
+                            : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700"
+                        }`}
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-300">
                             {org.name[0]}
                           </div>
                           <div>
                             <p className="text-sm font-medium text-white">{org.name}</p>
+                            <p className="text-xs text-zinc-500">/{org.slug}</p>
                           </div>
                         </div>
-                       
-                      </div>
+
+                        {selectedOrganizationId === org.id ? (
+                          <span className="text-[11px] text-zinc-400">Selected</span>
+                        ) : null}
+                      </button>
                     ))}
+
+                    {!organizations.length ? (
+                      <p className="text-xs text-zinc-500">No organizations yet.</p>
+                    ) : null}
                   </div>
+
+                  {selectedOrganizationId ? (
+                    <div className="space-y-4 rounded-md border border-zinc-800 bg-zinc-900/30 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Organization Controls</p>
+                          <p className="text-xs text-zinc-500">
+                            Role: {activeMemberRole ?? "unknown"}
+                          </p>
+                        </div>
+                        {orgAdminBusy ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                        ) : null}
+                      </div>
+
+                      {isAdminRole(activeMemberRole) ? (
+                        <div className="space-y-4">
+                          <div className="rounded-md border border-zinc-800 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className="text-sm font-medium text-white">Join Link</p>
+                                <p className="text-xs text-zinc-500">
+                                  {joinLink
+                                    ? joinLink.enabled
+                                      ? "Enabled"
+                                      : "Disabled"
+                                    : "No link generated"}
+                                </p>
+                              </div>
+                              <button
+                                className="px-3 py-1.5 text-xs font-medium border border-zinc-700 rounded-md hover:bg-zinc-900"
+                                onClick={() => void rotateJoinLink()}
+                                disabled={orgAdminBusy}
+                                type="button"
+                              >
+                                Generate / Rotate
+                              </button>
+                            </div>
+
+                            {generatedJoinLinkUrl ? (
+                              <div className="mt-3 rounded bg-black/40 p-2">
+                                <p className="text-[11px] text-zinc-500">Shareable join link (copy/paste)</p>
+                                <p className="font-mono text-xs break-all text-zinc-200">{generatedJoinLinkUrl}</p>
+                              </div>
+                            ) : null}
+
+                            {joinLink ? (
+                              <div className="mt-3 flex gap-2">
+                                <button
+                                  className="px-3 py-1.5 text-xs font-medium border border-zinc-700 rounded-md hover:bg-zinc-900"
+                                  onClick={() => void toggleJoinLink(!joinLink.enabled)}
+                                  disabled={orgAdminBusy}
+                                  type="button"
+                                >
+                                  {joinLink.enabled ? "Disable" : "Enable"}
+                                </button>
+                                <button
+                                  className="px-3 py-1.5 text-xs font-medium border border-red-800 text-red-400 rounded-md hover:bg-red-950/40"
+                                  onClick={() => void revokeJoinLink()}
+                                  disabled={orgAdminBusy}
+                                  type="button"
+                                >
+                                  Revoke
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          <div className="rounded-md border border-zinc-800 p-3">
+                            <p className="text-sm font-medium text-white">Pending Join Requests</p>
+                            <div className="mt-3 space-y-2">
+                              {joinRequests.map((request) => (
+                                <div
+                                  key={request.id}
+                                  className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950/40 p-2"
+                                >
+                                  <div>
+                                    <p className="text-xs text-white">{request.userName || request.userEmail}</p>
+                                    <p className="text-[11px] text-zinc-500">{request.userEmail}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      className="px-2 py-1 text-[11px] font-medium border border-emerald-800 text-emerald-400 rounded hover:bg-emerald-950/30"
+                                      onClick={() => void decideRequest(request.id, "approve")}
+                                      disabled={orgAdminBusy}
+                                      type="button"
+                                    >
+                                      Approve
+                                    </button>
+                                    <button
+                                      className="px-2 py-1 text-[11px] font-medium border border-red-800 text-red-400 rounded hover:bg-red-950/30"
+                                      onClick={() => void decideRequest(request.id, "reject")}
+                                      disabled={orgAdminBusy}
+                                      type="button"
+                                    >
+                                      Reject
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {!joinRequests.length ? (
+                                <p className="text-xs text-zinc-500">No pending requests.</p>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-zinc-500">
+                          You have a member view for this organization. Admin controls are available to owners and admins.
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               )}
 

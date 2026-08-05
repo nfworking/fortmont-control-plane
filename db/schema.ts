@@ -285,6 +285,81 @@ export const agentJoinToken = pgTable(
   ],
 );
 
+export const organizationJoinLink = pgTable(
+  "organization_join_link",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
+    tokenHash: text("token_hash").notNull().unique(),
+
+    label: text("label"),
+
+    enabled: boolean("enabled").default(true).notNull(),
+
+    createdByUserId: text("created_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("organization_join_link_organizationId_idx").on(table.organizationId),
+    index("organization_join_link_tokenHash_idx").on(table.tokenHash),
+    index("organization_join_link_enabled_idx").on(table.enabled),
+  ],
+);
+
+export const organizationJoinRequest = pgTable(
+  "organization_join_request",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+
+    joinLinkId: uuid("join_link_id").references(() => organizationJoinLink.id, {
+      onDelete: "set null",
+    }),
+
+    status: text("status").default("pending").notNull(),
+
+    requestedAt: timestamp("requested_at").defaultNow().notNull(),
+
+    decidedAt: timestamp("decided_at"),
+
+    decidedByUserId: text("decided_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("organization_join_request_organizationId_idx").on(table.organizationId),
+    index("organization_join_request_userId_idx").on(table.userId),
+    index("organization_join_request_status_idx").on(table.status),
+    index("organization_join_request_requestedAt_idx").on(table.requestedAt),
+  ],
+);
+
 export const auditLog = pgTable(
   "audit_log",
   {
@@ -330,6 +405,13 @@ export const userRelations = relations(user, ({ many }) => ({
   members: many(member),
   invitations: many(invitation),
   agentJoinTokens: many(agentJoinToken),
+  createdOrganizationJoinLinks: many(organizationJoinLink),
+  organizationJoinRequests: many(organizationJoinRequest, {
+    relationName: "organizationJoinRequestUser",
+  }),
+  decidedOrganizationJoinRequests: many(organizationJoinRequest, {
+    relationName: "organizationJoinRequestDecider",
+  }),
   auditLogs: many(auditLog),
 }));
 
@@ -352,6 +434,8 @@ export const organizationRelations = relations(organization, ({ many }) => ({
   invitations: many(invitation),
   agents: many(agent),
   agentJoinTokens: many(agentJoinToken),
+  joinLinks: many(organizationJoinLink),
+  joinRequests: many(organizationJoinRequest),
 }));
 
 export const memberRelations = relations(member, ({ one }) => ({
@@ -384,6 +468,39 @@ export const agentJoinTokenRelations = relations(agentJoinToken, ({ one }) => ({
   createdByUser: one(user, {
     fields: [agentJoinToken.createdByUserId],
     references: [user.id],
+  }),
+}));
+
+export const organizationJoinLinkRelations = relations(organizationJoinLink, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [organizationJoinLink.organizationId],
+    references: [organization.id],
+  }),
+  createdByUser: one(user, {
+    fields: [organizationJoinLink.createdByUserId],
+    references: [user.id],
+  }),
+  requests: many(organizationJoinRequest),
+}));
+
+export const organizationJoinRequestRelations = relations(organizationJoinRequest, ({ one }) => ({
+  organization: one(organization, {
+    fields: [organizationJoinRequest.organizationId],
+    references: [organization.id],
+  }),
+  user: one(user, {
+    fields: [organizationJoinRequest.userId],
+    references: [user.id],
+    relationName: "organizationJoinRequestUser",
+  }),
+  joinLink: one(organizationJoinLink, {
+    fields: [organizationJoinRequest.joinLinkId],
+    references: [organizationJoinLink.id],
+  }),
+  decidedByUser: one(user, {
+    fields: [organizationJoinRequest.decidedByUserId],
+    references: [user.id],
+    relationName: "organizationJoinRequestDecider",
   }),
 }));
 
@@ -420,6 +537,8 @@ export const schema = {
   invitation,
   agent,
   agentJoinToken,
+  organizationJoinLink,
+  organizationJoinRequest,
   auditLog,
 };
 

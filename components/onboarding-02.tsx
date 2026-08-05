@@ -14,15 +14,12 @@ import {
   IconPlus,
   IconX,
 } from '@tabler/icons-react';
-import { createAuthClient } from 'better-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { authClient } from '@/lib/auth-client';
 import { cn } from '@/lib/utils';
 import { markCurrentUserOnboarded } from '@/server/users';
-
-// Initialize better-auth client
-const authClient = createAuthClient();
 
 interface StepConfig {
   id: string;
@@ -75,12 +72,82 @@ export function DynamicOnboardingFlow() {
   const [orgMode, setOrgMode] = useState<'create' | 'join'>('create');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [isOrgSubmitting, setIsOrgSubmitting] = useState(false);
+  const [orgError, setOrgError] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState('');
+  const [orgSlug, setOrgSlug] = useState('');
+  const [orgJoinToken, setOrgJoinToken] = useState('');
 
   const step = STEPS[currentStep];
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === STEPS.length - 1;
 
+  const extractJoinToken = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+
+    if (trimmed.includes('/join/')) {
+      const segment = trimmed.split('/join/').pop() ?? '';
+      return segment.split('?')[0]?.replace(/\/+$/, '') ?? '';
+    }
+
+    return trimmed;
+  };
+
+  const handleOrganizationStep = async () => {
+    setOrgError(null);
+    setIsOrgSubmitting(true);
+
+    try {
+      if (orgMode === 'create') {
+        const normalizedName = orgName.trim();
+        const normalizedSlug = orgSlug.trim().toLowerCase();
+
+        if (!normalizedName || !normalizedSlug) {
+          setOrgError('Organization name and slug are required.');
+          return false;
+        }
+
+        await authClient.organization.create({
+          name: normalizedName,
+          slug: normalizedSlug,
+        });
+
+        return true;
+      }
+
+      const token = extractJoinToken(orgJoinToken);
+      if (!token) {
+        setOrgError('Provide a valid join link or token.');
+        return false;
+      }
+
+      const response = await fetch(`/api/v2/join/${encodeURIComponent(token)}/request`, {
+        method: 'POST',
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? 'Failed to submit organization join request.');
+      }
+
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Organization step failed.';
+      setOrgError(message);
+      return false;
+    } finally {
+      setIsOrgSubmitting(false);
+    }
+  };
+
   const handleNext = async () => {
+    if (step.id === 'org') {
+      const orgStepOk = await handleOrganizationStep();
+      if (!orgStepOk) return;
+    }
+
     if (!isLastStep) {
       setCurrentStep((prev) => prev + 1);
       return;
@@ -291,22 +358,39 @@ export function DynamicOnboardingFlow() {
                   <div className="space-y-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="org-name">Organization Name</Label>
-                      <Input id="org-name" placeholder="Acme Inc." />
+                      <Input
+                        id="org-name"
+                        placeholder="Acme Inc."
+                        value={orgName}
+                        onChange={(event) => setOrgName(event.target.value)}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="org-slug">Workspace URL</Label>
                       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <span className="shrink-0 font-mono text-xs">app.com/</span>
-                        <Input id="org-slug" placeholder="acme" />
+                        <Input
+                          id="org-slug"
+                          placeholder="acme"
+                          value={orgSlug}
+                          onChange={(event) => setOrgSlug(event.target.value)}
+                        />
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
-                    <Label htmlFor="org-code">Invite Code / Org ID</Label>
-                    <Input id="org-code" placeholder="e.g. org_987654" />
+                    <Label htmlFor="org-code">Join Link or Token</Label>
+                    <Input
+                      id="org-code"
+                      placeholder="https://.../join/agt_xxx or agt_xxx"
+                      value={orgJoinToken}
+                      onChange={(event) => setOrgJoinToken(event.target.value)}
+                    />
                   </div>
                 )}
+
+                {orgError ? <p className="text-xs text-destructive">{orgError}</p> : null}
               </div>
             )}
 
@@ -350,8 +434,14 @@ export function DynamicOnboardingFlow() {
               Back
             </Button>
 
-            <Button onClick={() => void handleNext()} disabled={isCompleting} className="gap-1.5 text-xs" size="sm">
-              {isLastStep ? (isCompleting ? 'Finishing...' : 'Finish') : step.isRequired ? 'Continue' : 'Skip / Finish'}
+            <Button onClick={() => void handleNext()} disabled={isCompleting || isOrgSubmitting} className="gap-1.5 text-xs" size="sm">
+              {step.id === 'org' && isOrgSubmitting
+                ? 'Processing...'
+                : isLastStep
+                  ? (isCompleting ? 'Finishing...' : 'Finish')
+                  : step.isRequired
+                    ? 'Continue'
+                    : 'Skip / Finish'}
               {!isLastStep && <IconArrowRight className="size-3.5" />}
             </Button>
           </div>

@@ -1,11 +1,15 @@
 "use client"
 
+import { useSearchParams } from "next/navigation"
 import { LoginForm } from "@/components/ui/login-form"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { LayoutBottomIcon } from "@hugeicons/core-free-icons"
 import {GridBackground} from "@/components/ui/grid-bg"
 
 export default function LoginPage() {
+  const searchParams = useSearchParams()
+  const next = searchParams.get("next") ?? undefined
+
   return (
     <GridBackground>
     <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-cover bg-center p-6 md:p-10" >
@@ -16,7 +20,7 @@ export default function LoginPage() {
           </div>
           Fortmont Control Plane
         </a>
-        <LoginForm />
+        <LoginForm redirectTo={next} />
       </div>
     </div>
     </GridBackground>

@@ -35,9 +35,14 @@ type LoginFormValues = z.infer<typeof formSchema>;
 
 export function LoginForm({
   className,
+  redirectTo,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & { redirectTo?: string }) {
   const router = useRouter();
+  const safeRedirect =
+    typeof redirectTo === "string" && redirectTo.startsWith("/")
+      ? redirectTo
+      : "/dashboard/control-plane";
   const {
     register,
     handleSubmit,
@@ -58,7 +63,7 @@ export function LoginForm({
         password: values.password,
       });
 
-      router.push("/dashboard/control-plane");
+      router.push(safeRedirect);
     } catch {
       setError("root", {
         message: "We couldn’t sign you in. Please check your credentials and try again.",
@@ -70,7 +75,7 @@ export function LoginForm({
     try {
       await authClient.signIn.social({
         provider: "github",
-        callbackURL: "/dashboard/control-plane",
+        callbackURL: safeRedirect,
       });
     } catch {
       setError("root", {
