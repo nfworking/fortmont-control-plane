@@ -13,11 +13,12 @@ import {
   Plus,
   Trash2,
   Loader2,
+  Check,
 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
-import { CreateOrganizationDialog} from "@/components/forms/create-org-form"
+import { CreateOrganizationDialog } from "@/components/forms/create-org-form"
 import { getOrganizations } from "@/server/orgs"
 
 interface SettingsDialogProps {
@@ -96,10 +97,20 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null)
+  const [editedName, setEditedName] = useState<string>("")
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
+  const [profileSaveSuccess, setProfileSaveSuccess] = useState<string | null>(null)
 
   useEffect(() => {
     getOrganizations().then(setOrganizations)
   }, [])
+
+  useEffect(() => {
+    if (data?.user?.name) {
+      setEditedName(data.user.name)
+    }
+  }, [data?.user?.name])
 
   const loadAdminData = async () => {
     const [linkResponse, requestsResponse] = await Promise.all([
@@ -299,10 +310,9 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     }
   }
 
-  const currentAvatarUrl = data?.user?.image ?? null
-  console.log(data?.user?.image);
-
-  const displayName = data?.user?.name || "User"
+  const displayName = editedName || data?.user?.name || "User"
+  const userWithTwoFactor = data?.user as { twoFactorEnabled?: boolean } | undefined
+  const isTwoFactorEnabled = Boolean(userWithTwoFactor?.twoFactorEnabled)
   const avatarInitials = displayName
     .split(" ")
     .filter(Boolean)
@@ -403,6 +413,23 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     )
   }
 
+  const saveProfile = async () => {
+    setIsSavingProfile(true)
+    setProfileSaveError(null)
+    setProfileSaveSuccess(null)
+
+    const { error } = await authClient.updateUser({ name: editedName })
+
+    if (error) {
+      setProfileSaveError(error.message ?? "Failed to update profile")
+    } else {
+      setProfileSaveSuccess("Profile updated")
+      window.setTimeout(() => setProfileSaveSuccess(null), 2500)
+    }
+
+    setIsSavingProfile(false)
+  }
+
   async function handleAvatarInputChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ""
@@ -431,21 +458,22 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     { id: "api-keys", label: "API Keys", icon: Key },
     { id: "organizations", label: "Organizations", icon: Building2 },
   ] as const
+
   return (
     <DialogPrimitive.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogPrimitive.Portal>
-        {/* Centered Backdrop Overlay with Blur */}
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        {/* Softened, deep black backdrop overlay with heavy blur */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300" />
 
-        {/* Dialog Content - Dead Center Viewport */}
-        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-4xl h-162.5 bg-black border border-zinc-800 rounded-xl shadow-2xl flex overflow-hidden text-white font-sans outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
+        {/* Pure Black Main Window - Rounded 2xl with modern low-profile border */}
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%] w-full max-w-4xl h-[650px] bg-black border border-zinc-800/40 rounded-2xl shadow-2xl shadow-black flex overflow-hidden text-white font-sans outline-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200">
           
-          {/* Sidebar */}
-          <aside className="w-64 border-r border-zinc-800 p-4 flex flex-col justify-between bg-black">
+          {/* Pure Black Sidebar */}
+          <aside className="w-64 border-r border-zinc-900 p-5 flex flex-col justify-between bg-black">
             <div className="space-y-6">
-              <div className="flex items-center justify-between px-2">
-                <DialogPrimitive.Close className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-900 rounded-md transition-colors outline-none">
-                  <X className="w-5 h-5" />
+              <div className="flex items-center justify-between px-1">
+                <DialogPrimitive.Close className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-900/60 rounded-xl transition-all outline-none">
+                  <X className="w-4 h-4" />
                   <span className="sr-only">Close</span>
                 </DialogPrimitive.Close>
               </div>
@@ -458,13 +486,13 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                     <button
                       key={item.id}
                       onClick={() => setActiveTab(item.id)}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-md transition-all ${
+                      className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 ${
                         isActive
-                          ? "bg-zinc-900 text-white"
-                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                          ? "bg-zinc-900 text-white shadow-inner"
+                          : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className={`w-4 h-4 ${isActive ? "text-white" : "text-zinc-500"}`} />
                       {item.label}
                     </button>
                   )
@@ -473,7 +501,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
             </div>
           </aside>
 
-          {/* Main Content */}
+          {/* Main Pure Black Content Canvas */}
           <main className="flex-1 flex flex-col bg-black overflow-y-auto">
             <div className="p-8 max-w-2xl">
               
@@ -481,25 +509,25 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
               {activeTab === "profile" && (
                 <div className="space-y-8">
                   <div>
-                    <h2 className="text-xl font-semibold tracking-tight text-white">Profile</h2>
-                    <p className="text-sm text-zinc-400">Manage your public information and preferences.</p>
+                    <h2 className="text-2xl font-semibold tracking-tight text-white">Profile</h2>
+                    <p className="text-sm text-zinc-500 mt-1">Manage your public information and preferences.</p>
                   </div>
 
                   <div className="space-y-6">
                     {/* Photo Upload */}
-                    <div className="flex items-center gap-6 pb-6 border-b border-zinc-800">
+                    <div className="flex items-center gap-6 pb-6 border-b border-zinc-900">
                       <div className="relative group">
-                        <Avatar className="w-20 h-20 rounded-full border border-zinc-800 bg-zinc-900">
+                        <Avatar className="w-20 h-20 rounded-full border border-zinc-800/60 bg-zinc-950 ring-2 ring-zinc-900">
                           <AvatarImage src={userImg ?? undefined} alt={displayName} />
-                          <AvatarFallback className="bg-zinc-900 text-zinc-500 text-xl">
+                          <AvatarFallback className="bg-zinc-900 text-zinc-400 text-lg font-medium">
                             {avatarInitials || "U"}
                           </AvatarFallback>
                         </Avatar>
                         <label
                           htmlFor="avatar-upload"
-                          className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          className="absolute inset-0 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-xs"
                         >
-                          <Camera className="w-5 h-5 text-white" />
+                          <Camera className="w-5 h-5 text-zinc-200" />
                         </label>
                         <input
                           id="avatar-upload"
@@ -511,12 +539,12 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                         />
                       </div>
                       <div className="w-full max-w-xs">
-                        <h4 className="text-sm font-medium text-white">Profile Picture</h4>
-                        <p className="text-xs text-zinc-400 mt-0.5">PNG, JPG, GIF or WEBP. Max 5MB.</p>
+                        <h4 className="text-sm font-medium text-zinc-200">Profile Picture</h4>
+                        <p className="text-xs text-zinc-500 mt-0.5">PNG, JPG, GIF or WEBP. Max 5MB.</p>
                         <label
                           htmlFor="avatar-upload"
-                          className={`inline-block mt-2 px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md transition-colors ${
-                            isUploadingAvatar ? "cursor-not-allowed opacity-60" : "hover:bg-zinc-900 cursor-pointer"
+                          className={`inline-block mt-2.5 px-3.5 py-1.5 text-xs font-medium bg-zinc-900/60 border border-zinc-800/40 rounded-lg transition-all hover:border-zinc-700 ${
+                            isUploadingAvatar ? "cursor-not-allowed opacity-60" : "hover:bg-zinc-800 text-zinc-200 cursor-pointer"
                           }`}
                         >
                           {isUploadingAvatar ? "Uploading..." : "Upload photo"}
@@ -524,8 +552,8 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
                         {isUploadingAvatar && (
                           <div className="mt-3 space-y-1.5">
-                            <Progress value={uploadProgress} className="h-1.5 bg-zinc-800" />
-                            <p className="text-[11px] text-zinc-400">Uploading {uploadProgress}%</p>
+                            <Progress value={uploadProgress} className="h-1 bg-zinc-900" />
+                            <p className="text-[11px] text-zinc-500">Uploading {uploadProgress}%</p>
                           </div>
                         )}
 
@@ -535,30 +563,31 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                     </div>
 
                     {/* Inputs */}
-                    <div className="grid gap-4">
+                    <div className="grid gap-5">
                       <div className="grid gap-2">
-                        <label className="text-xs font-medium text-zinc-300">Display Name</label>
+                        <label className="text-xs font-medium text-zinc-400">Display Name</label>
                         <input
                           type="text"
-                          defaultValue={displayName}
-                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-zinc-950/60 border border-zinc-800/40 rounded-xl text-sm text-white focus:outline-none focus:border-zinc-700 focus:ring-1 focus:ring-zinc-700 transition-all placeholder:text-zinc-600"
                         />
                       </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-zinc-300">Username</label>
-                        <input
-                          type="text"
-                          defaultValue="alexmercer"
-                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-zinc-300">Bio</label>
-                        <textarea
-                          rows={3}
-                          defaultValue="Enterprise Software Developer building scalable systems."
-                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors resize-none"
-                        />
+
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-2">
+                          {profileSaveError && <p className="text-[11px] text-red-400">{profileSaveError}</p>}
+                          {profileSaveSuccess && <p className="text-[11px] text-emerald-400">{profileSaveSuccess}</p>}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void saveProfile()}
+                          disabled={isSavingProfile || editedName.trim() === ""}
+                          className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-white text-black rounded-xl hover:bg-zinc-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isSavingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                          Save changes
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -569,31 +598,41 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
               {activeTab === "account" && (
                 <div className="space-y-8">
                   <div>
-                    <h2 className="text-xl font-semibold tracking-tight text-white">Account</h2>
-                    <p className="text-sm text-zinc-400">Manage security settings and account credentials.</p>
+                    <h2 className="text-2xl font-semibold tracking-tight text-white">Account</h2>
+                    <p className="text-sm text-zinc-500 mt-1">Manage security settings and account credentials.</p>
                   </div>
 
                   <div className="space-y-6">
-                    <div className="grid gap-4">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-medium text-zinc-300">Email Address</label>
-                        <input
-                          type="email"
-                          defaultValue="alex.mercer@example.com"
-                          className="w-full px-3 py-2 bg-zinc-900/50 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-700 transition-colors"
-                        />
-                      </div>
+                    <div className="grid gap-2">
+                      <label className="text-xs font-medium text-zinc-400">Email Address</label>
+                      <input
+                        type="email"
+                        value={data?.user?.email ?? ""}
+                        readOnly
+                        className="w-full px-3.5 py-2.5 bg-zinc-950/60 border border-zinc-800/40 rounded-xl text-sm text-zinc-500 cursor-not-allowed transition-all"
+                      />
+                      <p className="text-[11px] text-zinc-600">Email address cannot be changed.</p>
                     </div>
 
-                    <div className="pt-4 border-t border-zinc-800 space-y-4">
-                      <h3 className="text-sm font-medium text-white">Security</h3>
-                      <div className="flex items-center justify-between p-3 border border-zinc-800 rounded-md bg-zinc-900/30">
+                    <div className="pt-6 border-t border-zinc-900 space-y-4">
+                      <h3 className="text-sm font-medium text-zinc-200">Security</h3>
+                      <div className="flex items-center justify-between p-4 border border-zinc-900 rounded-2xl bg-zinc-950/40">
                         <div>
                           <p className="text-sm font-medium text-white">Two-Factor Authentication</p>
-                          <p className="text-xs text-zinc-400">Add an extra layer of security to your account.</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            {isTwoFactorEnabled
+                              ? "Enabled. Your account is protected with a second factor."
+                              : "Add an extra layer of security to your account."}
+                          </p>
                         </div>
-                        <button className="px-3 py-1.5 text-xs font-medium border border-zinc-800 rounded-md hover:bg-zinc-900 transition-colors">
-                          Enable
+                        <button
+                          type="button"
+                          onClick={() => {
+                            window.location.href = "/two-factor/setup?next=%2Fdashboard%2Fcontrol-plane"
+                          }}
+                          className="px-3.5 py-1.5 text-xs font-medium bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800/40 rounded-lg transition-all"
+                        >
+                          {isTwoFactorEnabled ? "Manage" : "Enable"}
                         </button>
                       </div>
                     </div>
@@ -606,10 +645,10 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                 <div className="space-y-8">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold tracking-tight text-white">API Keys</h2>
-                      <p className="text-sm text-zinc-400">Manage developer access keys for integration.</p>
+                      <h2 className="text-2xl font-semibold tracking-tight text-white">API Keys</h2>
+                      <p className="text-sm text-zinc-500 mt-1">Manage developer access keys for integration.</p>
                     </div>
-                    <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-white text-black rounded-md hover:bg-zinc-200 transition-colors">
+                    <button className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-white text-black rounded-xl hover:bg-zinc-200 transition-all font-medium">
                       <Plus className="w-3.5 h-3.5" />
                       Create Key
                     </button>
@@ -620,16 +659,16 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                       { name: "Production Key", created: "May 12, 2026", key: "sk_live_...9a4f" },
                       { name: "Development Key", created: "Jul 28, 2026", key: "sk_test_...1b8e" },
                     ].map((k, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3.5 border border-zinc-800 rounded-md bg-zinc-900/30">
+                      <div key={idx} className="flex items-center justify-between p-4 border border-zinc-900 rounded-2xl bg-zinc-950/40 hover:border-zinc-800/60 transition-all">
                         <div>
-                          <p className="text-sm font-medium text-white">{k.name}</p>
-                          <p className="text-xs text-zinc-500 font-mono mt-0.5">{k.key} • Created {k.created}</p>
+                          <p className="text-sm font-medium text-zinc-200">{k.name}</p>
+                          <p className="text-xs text-zinc-500 font-mono mt-1">{k.key} • Created {k.created}</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button className="p-1.5 text-zinc-400 hover:text-white rounded-md transition-colors">
+                        <div className="flex items-center gap-1">
+                          <button className="p-2 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900/60 rounded-lg transition-all">
                             <Copy className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 text-zinc-400 hover:text-red-400 rounded-md transition-colors">
+                          <button className="p-2 text-zinc-500 hover:text-red-400 hover:bg-zinc-900/60 rounded-lg transition-all">
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -644,8 +683,8 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                 <div className="space-y-8">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-xl font-semibold tracking-tight text-white">Organizations</h2>
-                      <p className="text-sm text-zinc-400">Manage workspace memberships and teams.</p>
+                      <h2 className="text-2xl font-semibold tracking-tight text-white">Organizations</h2>
+                      <p className="text-sm text-zinc-500 mt-1">Manage workspace memberships and teams.</p>
                     </div>
                     <CreateOrganizationDialog />
                   </div>
@@ -658,14 +697,14 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                         type="button"
                         key={org.id}
                         onClick={() => void selectOrganization(org.id)}
-                        className={`w-full text-left flex items-center justify-between p-3.5 border rounded-md transition-colors ${
+                        className={`w-full text-left flex items-center justify-between p-4 border rounded-2xl transition-all ${
                           selectedOrganizationId === org.id
-                            ? "border-zinc-600 bg-zinc-900"
-                            : "border-zinc-800 bg-zinc-900/30 hover:border-zinc-700"
+                            ? "border-zinc-700 bg-zinc-900/80 shadow-md"
+                            : "border-zinc-900 bg-zinc-950/40 hover:border-zinc-800/60 hover:bg-zinc-900/30"
                         }`}
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-300">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800/40 flex items-center justify-center text-xs font-semibold text-zinc-200">
                             {org.name[0]}
                           </div>
                           <div>
@@ -675,7 +714,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                         </div>
 
                         {selectedOrganizationId === org.id ? (
-                          <span className="text-[11px] text-zinc-400">Selected</span>
+                          <span className="text-xs text-zinc-400 bg-zinc-800/50 px-2.5 py-1 rounded-full border border-zinc-700/50">Active</span>
                         ) : null}
                       </button>
                     ))}
@@ -686,26 +725,26 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                   </div>
 
                   {selectedOrganizationId ? (
-                    <div className="space-y-4 rounded-md border border-zinc-800 bg-zinc-900/30 p-4">
+                    <div className="space-y-5 rounded-2xl border border-zinc-900 bg-zinc-950/40 p-5">
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-white">Organization Controls</p>
-                          <p className="text-xs text-zinc-500">
-                            Role: {activeMemberRole ?? "unknown"}
+                          <p className="text-xs text-zinc-500 mt-0.5">
+                            Role: <span className="text-zinc-300 font-medium">{activeMemberRole ?? "unknown"}</span>
                           </p>
                         </div>
                         {orgAdminBusy ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                          <Loader2 className="h-4 w-4 animate-spin text-zinc-500" />
                         ) : null}
                       </div>
 
                       {isAdminRole(activeMemberRole) ? (
                         <div className="space-y-4">
-                          <div className="rounded-md border border-zinc-800 p-3">
+                          <div className="rounded-xl border border-zinc-900 bg-black/40 p-4 space-y-3">
                             <div className="flex items-center justify-between gap-2">
                               <div>
-                                <p className="text-sm font-medium text-white">Join Link</p>
-                                <p className="text-xs text-zinc-500">
+                                <p className="text-sm font-medium text-zinc-200">Join Link</p>
+                                <p className="text-xs text-zinc-500 mt-0.5">
                                   {joinLink
                                     ? joinLink.enabled
                                       ? "Enabled"
@@ -714,7 +753,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                                 </p>
                               </div>
                               <button
-                                className="px-3 py-1.5 text-xs font-medium border border-zinc-700 rounded-md hover:bg-zinc-900"
+                                className="px-3 py-1.5 text-xs font-medium border border-zinc-800/60 rounded-lg hover:bg-zinc-900 text-zinc-300 transition-all"
                                 onClick={() => void rotateJoinLink()}
                                 disabled={orgAdminBusy}
                                 type="button"
@@ -724,17 +763,17 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                             </div>
 
                             {generatedJoinLinkUrl ? (
-                              <div className="mt-3 rounded bg-black/40 p-2">
+                              <div className="mt-3 rounded-xl bg-zinc-950 border border-zinc-900 p-3">
                                 <p className="text-[11px] text-zinc-500">Shareable join link (copy/paste)</p>
-                                <div className="mt-1 flex items-start gap-2">
-                                  <p className="font-mono text-xs break-all text-zinc-200 flex-1">{generatedJoinLinkUrl}</p>
+                                <div className="mt-1.5 flex items-center gap-2">
+                                  <p className="font-mono text-xs break-all text-zinc-300 flex-1">{generatedJoinLinkUrl}</p>
                                   <button
                                     type="button"
                                     onClick={() => void copyGeneratedJoinLink()}
-                                    className="inline-flex items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-900"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-800/80 px-2.5 py-1 text-xs text-zinc-300 hover:bg-zinc-900 transition-all shrink-0"
                                     aria-label="Copy join link"
                                   >
-                                    <Copy className="h-3.5 w-3.5" />
+                                    {copiedJoinLink ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
                                     {copiedJoinLink ? "Copied" : "Copy"}
                                   </button>
                                 </div>
@@ -742,9 +781,9 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                             ) : null}
 
                             {joinLink ? (
-                              <div className="mt-3 flex gap-2">
+                              <div className="mt-3 flex gap-2 pt-2 border-t border-zinc-900">
                                 <button
-                                  className="px-3 py-1.5 text-xs font-medium border border-zinc-700 rounded-md hover:bg-zinc-900"
+                                  className="px-3 py-1.5 text-xs font-medium border border-zinc-800/60 rounded-lg hover:bg-zinc-900 text-zinc-300 transition-all"
                                   onClick={() => void toggleJoinLink(!joinLink.enabled)}
                                   disabled={orgAdminBusy}
                                   type="button"
@@ -752,7 +791,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                                   {joinLink.enabled ? "Disable" : "Enable"}
                                 </button>
                                 <button
-                                  className="px-3 py-1.5 text-xs font-medium border border-red-800 text-red-400 rounded-md hover:bg-red-950/40"
+                                  className="px-3 py-1.5 text-xs font-medium border border-red-950 text-red-400 rounded-lg hover:bg-red-950/30 transition-all"
                                   onClick={() => void revokeJoinLink()}
                                   disabled={orgAdminBusy}
                                   type="button"
@@ -763,76 +802,45 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                             ) : null}
                           </div>
 
-                          <div className="rounded-md border border-zinc-800 p-3">
-                            <p className="text-sm font-medium text-white">Pending Join Requests</p>
+                          <div className="rounded-xl border border-zinc-900 bg-black/40 p-4">
+                            <p className="text-sm font-medium text-zinc-200">Pending Join Requests</p>
                             <div className="mt-3 space-y-2">
                               {joinRequests.map((request) => (
                                 <div
                                   key={request.id}
-                                  className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950/40 p-2"
+                                  className="flex items-center justify-between rounded-xl border border-zinc-900 bg-zinc-950/60 p-3"
                                 >
                                   <div>
-                                    <p className="text-xs text-white">{request.userName || request.userEmail}</p>
+                                    <p className="text-xs font-medium text-zinc-200">{request.userName || request.userEmail}</p>
                                     <p className="text-[11px] text-zinc-500">{request.userEmail}</p>
                                   </div>
                                   <div className="flex gap-2">
                                     <button
-                                      className="px-2 py-1 text-[11px] font-medium border border-emerald-800 text-emerald-400 rounded hover:bg-emerald-950/30"
                                       onClick={() => void decideRequest(request.id, "approve")}
                                       disabled={orgAdminBusy}
-                                      type="button"
+                                      className="px-2.5 py-1 text-xs font-medium bg-zinc-100 text-black rounded-lg hover:bg-zinc-300 transition-all"
                                     >
                                       Approve
                                     </button>
                                     <button
-                                      className="px-2 py-1 text-[11px] font-medium border border-red-800 text-red-400 rounded hover:bg-red-950/30"
                                       onClick={() => void decideRequest(request.id, "reject")}
                                       disabled={orgAdminBusy}
-                                      type="button"
+                                      className="px-2.5 py-1 text-xs font-medium border border-zinc-800 text-zinc-400 rounded-lg hover:bg-zinc-900 transition-all"
                                     >
                                       Reject
                                     </button>
                                   </div>
                                 </div>
                               ))}
-
-                              {!joinRequests.length ? (
-                                <p className="text-xs text-zinc-500">No pending requests.</p>
-                              ) : null}
+                              {!joinRequests.length && (
+                                <p className="text-xs text-zinc-500">No pending join requests.</p>
+                              )}
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <p className="text-xs text-zinc-500">
-                          You have a member view for this organization. Admin controls are available to owners and admins.
-                        </p>
+                        <p className="text-xs text-zinc-500">You must be an admin or owner to manage organization links and requests.</p>
                       )}
-
-                      <div className="rounded-md border border-zinc-800 p-3">
-                        <p className="text-sm font-medium text-white">Members & Roles</p>
-                        <div className="mt-3 space-y-2">
-                          {organizationMembers.map((memberEntry) => (
-                            <div
-                              key={memberEntry.id}
-                              className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950/40 p-2"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-xs text-white">
-                                  {memberEntry.name || memberEntry.email}
-                                </p>
-                                <p className="truncate text-[11px] text-zinc-500">{memberEntry.email}</p>
-                              </div>
-                              <span className="ml-3 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300">
-                                {memberEntry.role}
-                              </span>
-                            </div>
-                          ))}
-
-                          {!organizationMembers.length ? (
-                            <p className="text-xs text-zinc-500">No members found.</p>
-                          ) : null}
-                        </div>
-                      </div>
                     </div>
                   ) : null}
                 </div>
@@ -840,7 +848,6 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
             </div>
           </main>
-
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

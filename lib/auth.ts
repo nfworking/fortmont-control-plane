@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { createAuthMiddleware } from "better-auth/api";
+import { twoFactor } from "better-auth/plugins";
 import { db } from "@/db/drizzle";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
@@ -19,7 +20,8 @@ const organizationPlugin = organization({
 })
 
 export const auth = betterAuth({
-   plugins: [nextCookies(), organizationPlugin],
+   appName: "Fortmont Cloud and IAM",
+   plugins: [nextCookies(), organizationPlugin, twoFactor() ],
    socialProviders: {
       github: {
          clientId: process.env.GITHUB_CLIENT_ID as string,

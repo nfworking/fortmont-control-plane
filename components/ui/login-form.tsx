@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { authClient } from "@/lib/auth-client";
 
 import { cn } from "@/lib/utils";
-import { signIn } from "@/server/users";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -58,12 +57,23 @@ export function LoginForm({
 
   const onSubmit = async (values: LoginFormValues) => {
     try {
-      await signIn({
-        email: values.email,
-        password: values.password,
-      });
+      await authClient.signIn.email(
+        {
+          email: values.email,
+          password: values.password,
+        },
+        {
+          onSuccess(context) {
+            if (context.data?.twoFactorRedirect) {
+              const twoFactorNext = encodeURIComponent(safeRedirect);
+              router.push(`/two-factor?next=${twoFactorNext}`);
+              return;
+            }
 
-      router.push(safeRedirect);
+            router.push(safeRedirect);
+          },
+        },
+      );
     } catch {
       setError("root", {
         message: "We couldn’t sign you in. Please check your credentials and try again.",

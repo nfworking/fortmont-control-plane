@@ -68,15 +68,20 @@ const STEPS: StepConfig[] = [
 ];
 
 export function DynamicOnboardingFlow() {
+  const { data: session } = authClient.useSession();
   const [currentStep, setCurrentStep] = useState(0);
   const [orgMode, setOrgMode] = useState<'create' | 'join'>('create');
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isOrgSubmitting, setIsOrgSubmitting] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
   const [orgError, setOrgError] = useState<string | null>(null);
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState('');
   const [orgJoinToken, setOrgJoinToken] = useState('');
+
+  const userWithTwoFactor = session?.user as { twoFactorEnabled?: boolean } | undefined;
+  const isTwoFactorEnabled = Boolean(userWithTwoFactor?.twoFactorEnabled);
 
   const step = STEPS[currentStep];
   const isFirstStep = currentStep === 0;
@@ -143,6 +148,15 @@ export function DynamicOnboardingFlow() {
   };
 
   const handleNext = async () => {
+    if (step.id === 'mfa' && !isTwoFactorEnabled) {
+      setMfaError('Set up and verify 2FA before continuing.');
+      return;
+    }
+
+    if (step.id === 'mfa') {
+      setMfaError(null);
+    }
+
     if (step.id === 'org') {
       const orgStepOk = await handleOrganizationStep();
       if (!orgStepOk) return;
@@ -315,18 +329,31 @@ export function DynamicOnboardingFlow() {
             {/* Step 2: MFA Setup */}
             {step.id === 'mfa' && (
               <div className="space-y-4 pt-2">
-                <div className="rounded-lg border p-4 text-xs text-muted-foreground bg-muted/40">
-                  Scan the QR code below with your authenticator app (1Password, Authy, or Google Authenticator) and enter the generated code.
+                <div className="rounded-lg border bg-muted/40 p-4 text-xs text-muted-foreground">
+                  Use an authenticator app like 1Password, Authy, or Google Authenticator.
+                  This onboarding step requires 2FA before you can continue.
                 </div>
-                <div className="flex justify-center py-2">
-                  <div className="flex size-36 items-center justify-center rounded-xl border border-dashed bg-muted/20 text-xs text-muted-foreground font-mono">
-                    [QR Code Placeholder]
-                  </div>
+                <div className="rounded-lg border bg-card/50 p-4">
+                  <p className="text-sm font-medium">
+                    {isTwoFactorEnabled
+                      ? 'Two-factor authentication is enabled.'
+                      : 'Two-factor authentication is not enabled yet.'}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Open setup to generate your QR code and verify the first code.
+                  </p>
+                  <Button
+                    type="button"
+                    className="mt-3"
+                    onClick={() => {
+                      window.location.href = '/two-factor/setup?next=%2Fonboarding';
+                    }}
+                  >
+                    {isTwoFactorEnabled ? 'Manage 2FA' : 'Set up 2FA'}
+                  </Button>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="mfa-code">Verification Code</Label>
-                  <Input id="mfa-code" placeholder="123 456" maxLength={6} className="text-center font-mono tracking-widest text-lg" />
-                </div>
+
+                {mfaError ? <p className="text-xs text-red-500">{mfaError}</p> : null}
               </div>
             )}
 

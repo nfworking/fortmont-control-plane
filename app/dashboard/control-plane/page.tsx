@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Check } from "lucide-react";
 import packageJson from "@/package.json";
+import { authClient } from "@/lib/auth-client";
 
 interface Agent {
   id: string;
@@ -146,7 +147,7 @@ export default function ControlPlaneDashboardPage() {
   }, []);
 
   const activeAgentsCount = agents.filter((a) => a.connected).length;
-
+  const { data } = authClient.useSession();
   const orgIdLabel = useMemo(() => activeOrganization?.id ?? "No organization selected", [activeOrganization]);
 
   const copyOrganizationId = async () => {
@@ -168,6 +169,7 @@ export default function ControlPlaneDashboardPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold tracking-tight">Control Plane Dashboard</h1>
+            <h1>Welcome back {data?.user?.name ?? "User"} 👋</h1>
             <span
               className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                 sseStatus === "connected"
