@@ -53,6 +53,16 @@ type JoinRequestItem = {
   userImage: string | null
 }
 
+type OrganizationMemberItem = {
+  id: string
+  userId: string
+  role: string
+  createdAt: string
+  name: string
+  email: string
+  image: string | null
+}
+
 function isAdminRole(roleValue: string | null | undefined) {
   if (!roleValue) return false
   const roles = roleValue
@@ -73,7 +83,9 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
   const [activeMemberRole, setActiveMemberRole] = useState<string | null>(null)
   const [joinLink, setJoinLink] = useState<JoinLink | null>(null)
   const [joinRequests, setJoinRequests] = useState<JoinRequestItem[]>([])
+  const [organizationMembers, setOrganizationMembers] = useState<OrganizationMemberItem[]>([])
   const [generatedJoinLinkUrl, setGeneratedJoinLinkUrl] = useState<string | null>(null)
+  const [copiedJoinLink, setCopiedJoinLink] = useState(false)
   const [orgAdminBusy, setOrgAdminBusy] = useState(false)
   const [orgAdminError, setOrgAdminError] = useState<string | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
@@ -112,10 +124,22 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     setJoinRequests((requestsPayload?.requests ?? []) as JoinRequestItem[])
   }
 
+  const loadOrganizationMembers = async () => {
+    const response = await fetch("/api/v2/organization/members", { cache: "no-store" })
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      throw new Error(payload?.error ?? "Failed to load organization members")
+    }
+
+    setOrganizationMembers((payload?.members ?? []) as OrganizationMemberItem[])
+  }
+
   const selectOrganization = async (organizationId: string) => {
     setOrgAdminBusy(true)
     setOrgAdminError(null)
     setGeneratedJoinLinkUrl(null)
+    setCopiedJoinLink(false)
 
     try {
       await authClient.organization.setActive({ organizationId })
@@ -132,6 +156,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
       setSelectedOrganizationId(organizationId)
       setActiveMemberRole(resolvedRole)
+      await loadOrganizationMembers()
 
       if (isAdminRole(resolvedRole)) {
         await loadAdminData()
@@ -167,6 +192,7 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
       if (typeof payload?.joinUrl === "string") {
         setGeneratedJoinLinkUrl(payload.joinUrl)
+        setCopiedJoinLink(false)
       }
 
       await loadAdminData()
@@ -252,11 +278,24 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       }
 
       await loadAdminData()
+      await loadOrganizationMembers()
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update join request"
       setOrgAdminError(message)
     } finally {
       setOrgAdminBusy(false)
+    }
+  }
+
+  const copyGeneratedJoinLink = async () => {
+    if (!generatedJoinLinkUrl) return
+
+    try {
+      await navigator.clipboard.writeText(generatedJoinLinkUrl)
+      setCopiedJoinLink(true)
+      window.setTimeout(() => setCopiedJoinLink(false), 1800)
+    } catch {
+      setOrgAdminError("Failed to copy join link")
     }
   }
 
@@ -687,7 +726,18 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                             {generatedJoinLinkUrl ? (
                               <div className="mt-3 rounded bg-black/40 p-2">
                                 <p className="text-[11px] text-zinc-500">Shareable join link (copy/paste)</p>
-                                <p className="font-mono text-xs break-all text-zinc-200">{generatedJoinLinkUrl}</p>
+                                <div className="mt-1 flex items-start gap-2">
+                                  <p className="font-mono text-xs break-all text-zinc-200 flex-1">{generatedJoinLinkUrl}</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => void copyGeneratedJoinLink()}
+                                    className="inline-flex items-center gap-1 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-200 hover:bg-zinc-900"
+                                    aria-label="Copy join link"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                    {copiedJoinLink ? "Copied" : "Copy"}
+                                  </button>
+                                </div>
                               </div>
                             ) : null}
 
@@ -757,6 +807,32 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
                           You have a member view for this organization. Admin controls are available to owners and admins.
                         </p>
                       )}
+
+                      <div className="rounded-md border border-zinc-800 p-3">
+                        <p className="text-sm font-medium text-white">Members & Roles</p>
+                        <div className="mt-3 space-y-2">
+                          {organizationMembers.map((memberEntry) => (
+                            <div
+                              key={memberEntry.id}
+                              className="flex items-center justify-between rounded border border-zinc-800 bg-zinc-950/40 p-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-xs text-white">
+                                  {memberEntry.name || memberEntry.email}
+                                </p>
+                                <p className="truncate text-[11px] text-zinc-500">{memberEntry.email}</p>
+                              </div>
+                              <span className="ml-3 rounded border border-zinc-700 px-2 py-1 text-[11px] text-zinc-300">
+                                {memberEntry.role}
+                              </span>
+                            </div>
+                          ))}
+
+                          {!organizationMembers.length ? (
+                            <p className="text-xs text-zinc-500">No members found.</p>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                   ) : null}
                 </div>
