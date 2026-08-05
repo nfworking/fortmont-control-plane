@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
 
   if (!result.ok) {
     await recordAuditEvent({
+      organizationId: parsed.data.organizationId?.trim() ?? null,
       category: "agent",
       action: "agent.register_with_token",
       outcome: "failure",
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   await recordAuditEvent({
+    organizationId: result.agent.organizationId,
     category: "agent",
     action: result.registered ? "agent.register" : "agent.reconnect",
     outcome: "success",

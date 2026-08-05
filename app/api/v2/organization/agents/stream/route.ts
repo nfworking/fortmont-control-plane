@@ -2,6 +2,8 @@ import { desc, eq } from "drizzle-orm";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
+import { createRedisSubscriber, isRedisConfigured } from "@/lib/redis";
+import { getAgentRedisEventsChannel } from "@/lib/server/agent-redis";
 import { requireDashboardSession } from "@/lib/server/agents";
 import { getActiveOrganizationContext } from "@/server/orgs";
 
@@ -54,19 +56,60 @@ export async function GET(request: Request) {
       publish("connected", { protocol: "sse", channel: "agents" });
       await emitSnapshot();
 
-      const interval = setInterval(async () => {
-        if (closed) {
-          clearInterval(interval);
-          return;
-        }
+      let interval: NodeJS.Timeout | null = null;
+      let keepAlive: NodeJS.Timeout | null = null;
+      let subscriber: ReturnType<typeof createRedisSubscriber> | null = null;
+      let cleanupSubscription: (() => Promise<void>) | null = null;
 
-        await emitSnapshot();
-      }, 5000);
+      if (isRedisConfigured()) {
+        const channel = getAgentRedisEventsChannel(orgContext.activeOrganization!.id);
+        subscriber = createRedisSubscriber();
 
-      request.signal.addEventListener("abort", () => {
+        await subscriber.connect().catch(() => null);
+        await subscriber.subscribe(channel);
+
+        const onMessage = async (incomingChannel: string) => {
+          if (closed || incomingChannel !== channel) return;
+          await emitSnapshot();
+        };
+
+        subscriber.on("message", onMessage);
+
+        keepAlive = setInterval(() => {
+          if (closed) return;
+          controller.enqueue(encoder.encode(`: keepalive\n\n`));
+        }, 25_000);
+
+        cleanupSubscription = async () => {
+          subscriber?.off("message", onMessage);
+          await subscriber?.unsubscribe(channel).catch(() => null);
+          await subscriber?.quit().catch(() => null);
+        };
+      } else {
+        interval = setInterval(async () => {
+          if (closed) {
+            if (interval) {
+              clearInterval(interval);
+            }
+            return;
+          }
+
+          await emitSnapshot();
+        }, 5000);
+      }
+
+      request.signal.addEventListener("abort", async () => {
         if (closed) return;
         closed = true;
-        clearInterval(interval);
+        if (interval) {
+          clearInterval(interval);
+        }
+        if (keepAlive) {
+          clearInterval(keepAlive);
+        }
+        if (cleanupSubscription) {
+          await cleanupSubscription();
+        }
         controller.close();
       });
     },

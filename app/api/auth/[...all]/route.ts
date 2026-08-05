@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
 
 	if (action === "auth.sign_out") {
 		await recordAuditEvent({
+			organizationId: preSession?.session?.activeOrganizationId ?? null,
 			category: "auth",
 			action,
 			outcome: success ? "success" : "failure",
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
 	const userByEmail = email ? await getUserByEmail(email) : null;
 
 	await recordAuditEvent({
+		organizationId: null,
 		category: "auth",
 		action,
 		outcome: "failure",

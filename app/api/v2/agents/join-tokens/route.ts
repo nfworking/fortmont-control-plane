@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
     });
 
   await recordAuditEvent({
+    organizationId: orgContext.activeOrganization.id,
     category: "agent",
     action: "agent.join_token.create",
     outcome: "success",
@@ -167,6 +168,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   await recordAuditEvent({
+    organizationId: orgContext.activeOrganization.id,
     category: "agent",
     action: "agent.join_token.revoke",
     outcome: "success",

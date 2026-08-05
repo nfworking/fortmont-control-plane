@@ -4,11 +4,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
 import { agent, auditLog, user } from "@/db/schema";
 import { coerceLimit } from "@/lib/server/audit";
-import { requireDashboardSession } from "@/lib/server/agents";
+import { jsonError, requireDashboardSession } from "@/lib/server/agents";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
 export async function GET(request: NextRequest) {
-  const { response } = await requireDashboardSession();
-  if (response) return response;
+  const { session, response } = await requireDashboardSession();
+  if (response || !session) return response;
+
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
+
+  const activeOrganizationId = orgContext.activeOrganization.id;
 
   const category = request.nextUrl.searchParams.get("category");
   const action = request.nextUrl.searchParams.get("action");
@@ -20,6 +28,7 @@ export async function GET(request: NextRequest) {
   const limit = coerceLimit(request.nextUrl.searchParams.get("limit"), 50, 200);
 
   const filters = [
+    eq(auditLog.organizationId, activeOrganizationId),
     category ? eq(auditLog.category, category) : undefined,
     action ? eq(auditLog.action, action) : undefined,
     outcome ? eq(auditLog.outcome, outcome) : undefined,
@@ -40,6 +49,7 @@ export async function GET(request: NextRequest) {
   const items = await db
     .select({
       id: auditLog.id,
+      organizationId: auditLog.organizationId,
       createdAt: auditLog.createdAt,
       category: auditLog.category,
       action: auditLog.action,

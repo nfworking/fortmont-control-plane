@@ -384,6 +384,9 @@ export const auditLog = pgTable(
   "audit_log",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: text("organization_id").references(() => organization.id, {
+      onDelete: "set null",
+    }),
     category: text("category").notNull(),
     action: text("action").notNull(),
     outcome: text("outcome").notNull(),
@@ -405,6 +408,7 @@ export const auditLog = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
+    index("audit_log_organizationId_idx").on(table.organizationId),
     index("audit_log_createdAt_idx").on(table.createdAt),
     index("audit_log_category_idx").on(table.category),
     index("audit_log_action_idx").on(table.action),
@@ -464,6 +468,7 @@ export const organizationRelations = relations(organization, ({ many }) => ({
   agentJoinTokens: many(agentJoinToken),
   joinLinks: many(organizationJoinLink),
   joinRequests: many(organizationJoinRequest),
+  auditLogs: many(auditLog),
 }));
 
 export const memberRelations = relations(member, ({ one }) => ({
@@ -541,6 +546,10 @@ export const agentRelations = relations(agent, ({ one, many }) => ({
 }));
 
 export const auditLogRelations = relations(auditLog, ({ one }) => ({
+  organization: one(organization, {
+    fields: [auditLog.organizationId],
+    references: [organization.id],
+  }),
   user: one(user, {
     fields: [auditLog.userId],
     references: [user.id],

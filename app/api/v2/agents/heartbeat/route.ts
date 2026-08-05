@@ -6,6 +6,7 @@ import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
+import { publishAgentHeartbeatProjection } from "@/lib/server/agent-redis";
 import { jsonError } from "@/lib/server/agents";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
 
@@ -51,6 +52,20 @@ export async function POST(request: NextRequest) {
     })
     .where(eq(agent.id, existing.id))
     .returning();
+
+  await publishAgentHeartbeatProjection({
+    id: updated.id,
+    organizationId: updated.organizationId,
+    deviceId: updated.deviceId,
+    connected: true,
+    lastSeen: updated.lastSeen,
+    hostname: updated.hostname,
+    localIp: updated.localIp,
+    publicIp: updated.publicIp,
+    version: updated.version,
+  }).catch((error) => {
+    console.error("failed to publish heartbeat projection", error);
+  });
 
   return NextResponse.json({
     ok: true,
@@ -118,6 +133,7 @@ export async function GET(request: NextRequest) {
       });
 
       await recordAuditEvent({
+        organizationId: existing.organizationId,
         category: "agent",
         action: "agent.heartbeat_stream.connected",
         outcome: "success",
@@ -179,6 +195,7 @@ export async function GET(request: NextRequest) {
           .where(eq(agent.deviceId, deviceId));
 
         await recordAuditEvent({
+          organizationId: existing.organizationId,
           category: "agent",
           action: "agent.heartbeat_stream.disconnected",
           outcome: "info",

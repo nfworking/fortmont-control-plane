@@ -33,6 +33,7 @@ func main() {
 	resetState := flag.Bool("reset-state", false, "Delete saved state and force new enrollment")
 	organizationID := flag.String("organization-id", "", "Organization ID to enroll into")
 	metricsInterval := flag.Duration("metrics-interval", 15*time.Second, "Interval duration for sending system metrics")
+	redisEnabled := flag.Bool("redis-enabled", true, "Enable Redis heartbeat transport")
 	flag.Parse()
 
 	hostname, err := os.Hostname()
@@ -79,7 +80,10 @@ func main() {
 	if publicIP == "" {
 		log.Println("public IP lookup failed; API will infer from request headers")
 	}
-	sseClient := &http.Client{}
+	var heartbeatPublisher agent.HeartbeatPublisher
+	if *redisEnabled {
+		heartbeatPublisher = agent.NewRedisHeartbeatPublisher(apiClient, base, agentAuthToken, resolvedDeviceID)
+	}
 
 	if joinToken != "" {
 		newAuthToken, registerErr := agent.Register(apiClient, base, agent.RegisterRequest{
@@ -150,20 +154,23 @@ func main() {
 	defer stop()
 
 	// Launch background heartbeat loop
-	go agent.RunHeartbeatLoop(ctx, apiClient, base, agentAuthToken, agent.HeartbeatRequest{
+	go agent.RunHeartbeatLoopWithPublisher(ctx, apiClient, base, agentAuthToken, agent.HeartbeatRequest{
 		DeviceID: resolvedDeviceID,
 		Version:  resolvedVersion,
 		Hostname: hostname,
 		LocalIP:  localIP,
 		PublicIP: publicIP,
 		Metadata: map[string]interface{}{"sample": true},
-	})
+	}, heartbeatPublisher)
 
 	// Launch background metrics reporting loop (posts to POST /api/v2/agents/metrics)
 	go agent.RunMetricsLoop(ctx, apiClient, base, agentAuthToken, resolvedDeviceID, *metricsInterval)
 
-	// Block on SSE connection stream
-	agent.RunSSELoop(ctx, sseClient, base, resolvedDeviceID, agentAuthToken)
+	<-ctx.Done()
+
+	if heartbeatPublisher != nil {
+		_ = heartbeatPublisher.Close()
+	}
 
 	if err := agent.Unregister(apiClient, base, resolvedDeviceID, agentAuthToken); err != nil {
 		log.Printf("unregister warning: %v", err)

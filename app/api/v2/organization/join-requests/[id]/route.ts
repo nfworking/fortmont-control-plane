@@ -52,6 +52,7 @@ export async function PATCH(
 
   const requestAudit = buildRequestAuditContext(request);
   await recordAuditEvent({
+    organizationId: orgContext.activeOrganization.id,
     category: "organization",
     action:
       parsed.data.decision === "approve"

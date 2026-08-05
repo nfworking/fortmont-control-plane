@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
+import { publishAgentHeartbeatProjection, revokeAgentRedisSession } from "@/lib/server/agent-redis";
 import { jsonError, requireDashboardSession } from "@/lib/server/agents";
 import { getActiveOrganizationContext } from "@/server/orgs";
 
@@ -83,6 +84,24 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!deleted) {
     return jsonError("Agent not found", 404);
   }
+
+  await publishAgentHeartbeatProjection({
+    id: deleted.id,
+    organizationId: deleted.organizationId,
+    deviceId: deleted.deviceId,
+    connected: false,
+    lastSeen: deleted.lastSeen,
+    hostname: deleted.hostname,
+    localIp: deleted.localIp,
+    publicIp: deleted.publicIp,
+    version: deleted.version,
+  }).catch((error) => {
+    console.error("failed to publish disconnect projection", error);
+  });
+
+  await revokeAgentRedisSession(deleted.organizationId, deleted.deviceId).catch((error) => {
+    console.error("failed to revoke redis session", error);
+  });
 
   return NextResponse.json({ success: true, id: deleted.id });
 }

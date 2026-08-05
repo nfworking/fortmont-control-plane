@@ -37,6 +37,29 @@ func RunHeartbeatLoop(ctx context.Context, client *http.Client, base, agentToken
 	}
 }
 
+func RunHeartbeatLoopWithPublisher(ctx context.Context, client *http.Client, base, agentToken string, payload HeartbeatRequest, publisher HeartbeatPublisher) {
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		if err := postHeartbeat(client, base, agentToken, payload); err != nil {
+			log.Printf("heartbeat post failed: %v", err)
+		}
+
+		if publisher != nil {
+			if err := publisher.PublishHeartbeat(ctx, payload); err != nil {
+				log.Printf("redis heartbeat publish failed: %v", err)
+			}
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 // RunMetricsLoop periodically collects CPU, RAM, and Disk metrics and posts them to the server.
 func RunMetricsLoop(ctx context.Context, client *http.Client, base, agentToken, deviceID string, interval time.Duration) {
 	ticker := time.NewTicker(interval)

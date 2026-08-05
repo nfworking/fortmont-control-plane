@@ -49,6 +49,32 @@ type MetricsPayload struct {
 	Metrics  *metrics.SystemMetrics `json:"metrics"`
 }
 
+type RedisSessionRequest struct {
+	DeviceID string `json:"deviceId"`
+}
+
+type RedisEndpoint struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	TLS  bool   `json:"tls"`
+	DB   int    `json:"db"`
+}
+
+type RedisSession struct {
+	Endpoint      RedisEndpoint `json:"endpoint"`
+	Username      string        `json:"username"`
+	Password      string        `json:"password"`
+	ExpiresAt     string        `json:"expiresAt"`
+	PresenceKey   string        `json:"presenceKey"`
+	EventsChannel string        `json:"eventsChannel"`
+	PresenceTTLSec int          `json:"presenceTtlSec"`
+}
+
+type RedisSessionResponse struct {
+	OK      bool         `json:"ok"`
+	Session RedisSession `json:"session"`
+}
+
 type APIError struct {
 	Error string `json:"error"`
 }
@@ -178,6 +204,43 @@ func Unregister(client *http.Client, base, deviceID, agentToken string) error {
 	}
 
 	return nil
+}
+
+func RequestRedisSession(ctx context.Context, client *http.Client, base, agentToken, deviceID string) (*RedisSession, error) {
+	payload := RedisSessionRequest{DeviceID: deviceID}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	url := base + "/api/v2/agents/redis-session"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	SetAgentTokenHeader(req, agentToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		return nil, ReadAPIError(resp)
+	}
+
+	var parsed RedisSessionResponse
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return nil, err
+	}
+
+	if !parsed.OK || strings.TrimSpace(parsed.Session.Username) == "" || strings.TrimSpace(parsed.Session.Password) == "" {
+		return nil, fmt.Errorf("server did not return a valid redis session")
+	}
+
+	return &parsed.Session, nil
 }
 
 func SetAgentTokenHeader(req *http.Request, agentToken string) {

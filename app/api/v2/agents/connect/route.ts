@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
     .returning();
 
   await recordAuditEvent({
+    organizationId: updated.organizationId,
     category: "agent",
     action: "agent.connect",
     outcome: "success",

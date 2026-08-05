@@ -1,14 +1,27 @@
 import { NextResponse } from "next/server";
-import { influxBucket, influxClient, influxOrg } from "@/lib/influx";
+import { escapeFluxTagValue, influxBucket, influxClient, influxOrg } from "@/lib/influx";
+import { jsonError, requireDashboardSession } from "@/lib/server/agents";
+import { getActiveOrganizationContext } from "@/server/orgs";
 
 export async function GET() {
+  const { session, response } = await requireDashboardSession();
+  if (response || !session) return response;
+
+  const orgContext = await getActiveOrganizationContext();
+  if (!orgContext.activeOrganization?.id) {
+    return jsonError("No active organization selected", 404);
+  }
+
+  const escapedOrganizationId = escapeFluxTagValue(orgContext.activeOrganization.id);
+
   const query = `
-    import "influxdata/influxdata/schema"
-    schema.tagValues(
-      bucket: "${influxBucket}",
-      tag: "deviceId",
-      start: -24h
-    )
+    from(bucket: "${influxBucket}")
+      |> range(start: -24h)
+      |> filter(fn: (r) => r["_field"] == "usage_percent")
+      |> filter(fn: (r) => r["organizationId"] == "${escapedOrganizationId}")
+      |> keep(columns: ["deviceId"])
+      |> group()
+      |> distinct(column: "deviceId")
   `;
 
   try {

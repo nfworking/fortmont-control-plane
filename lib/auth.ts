@@ -60,6 +60,7 @@ export const auth = betterAuth({
 
          if (path === "/sign-in/email") {
             await recordAuditEvent({
+               organizationId: newSession.session.activeOrganizationId ?? null,
                category: "auth",
                action: "auth.sign_in",
                outcome: "success",
@@ -76,6 +77,7 @@ export const auth = betterAuth({
 
          if (path.startsWith("/sign-up")) {
             await recordAuditEvent({
+               organizationId: newSession.session.activeOrganizationId ?? null,
                category: "auth",
                action: "auth.sign_up",
                outcome: "success",

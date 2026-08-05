@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
 
   const requestAudit = buildRequestAuditContext(request);
   await recordAuditEvent({
+    organizationId: guard.organizationId,
     category: "organization",
     action: "organization.join_link.rotate",
     outcome: "success",

@@ -21,6 +21,7 @@ export async function POST(
 
   const requestAudit = buildRequestAuditContext(request);
   await recordAuditEvent({
+    organizationId: created.organizationId,
     category: "organization",
     action: "organization.join_request.submit",
     outcome: "success",

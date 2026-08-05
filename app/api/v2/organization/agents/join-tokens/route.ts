@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
     });
 
   await recordAuditEvent({
+    organizationId: orgContext.activeOrganization.id,
     category: "agent",
     action: "agent.join_token.create",
     outcome: "success",

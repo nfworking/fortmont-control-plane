@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
     .returning();
 
   await recordAuditEvent({
+    organizationId: orgContext.activeOrganization.id,
     category: "agent",
     action: "agent.create",
     outcome: "success",

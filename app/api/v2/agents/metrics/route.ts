@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
 
     // Point tags let us quickly filter queries by device ID, host, or OS platform
     const baseTags = {
+      organizationId: existing.organizationId,
       deviceId: existing.deviceId,
       hostname: existing.hostname ?? "unknown",
       platform: existing.platform ?? "unknown",

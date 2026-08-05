@@ -6,6 +6,7 @@ import { db } from "@/db/drizzle";
 import { agent } from "@/db/schema";
 import { buildRequestAuditContext, recordAuditEvent } from "@/lib/server/audit";
 import { extractAgentAuthToken, requireAgentIdentity } from "@/lib/server/agent-auth";
+import { publishAgentHeartbeatProjection, revokeAgentRedisSession } from "@/lib/server/agent-redis";
 import { jsonError, requireDashboardSession } from "@/lib/server/agents";
 
 const unregisterSchema = z.object({
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     await recordAuditEvent({
+      organizationId: deleted.organizationId,
       category: "agent",
       action: "agent.delete",
       outcome: "success",
@@ -68,6 +70,24 @@ export async function POST(request: NextRequest) {
       targetType: "agent",
       targetId: deleted.id,
       message: "Agent hard deleted",
+    });
+
+    await publishAgentHeartbeatProjection({
+      id: deleted.id,
+      organizationId: deleted.organizationId,
+      deviceId: deleted.deviceId,
+      connected: false,
+      lastSeen: deleted.lastSeen,
+      hostname: deleted.hostname,
+      localIp: deleted.localIp,
+      publicIp: deleted.publicIp,
+      version: deleted.version,
+    }).catch((error) => {
+      console.error("failed to publish disconnect projection", error);
+    });
+
+    await revokeAgentRedisSession(deleted.organizationId, deleted.deviceId).catch((error) => {
+      console.error("failed to revoke redis session", error);
     });
 
     return NextResponse.json({ success: true, removed: true, id: deleted.id });
@@ -87,6 +107,7 @@ export async function POST(request: NextRequest) {
   }
 
   await recordAuditEvent({
+    organizationId: updated.organizationId,
     category: "agent",
     action: "agent.unregister",
     outcome: "success",
@@ -100,6 +121,24 @@ export async function POST(request: NextRequest) {
     targetType: "agent",
     targetId: updated.id,
     message: "Agent marked disconnected",
+  });
+
+  await publishAgentHeartbeatProjection({
+    id: updated.id,
+    organizationId: updated.organizationId,
+    deviceId: updated.deviceId,
+    connected: false,
+    lastSeen: updated.lastSeen,
+    hostname: updated.hostname,
+    localIp: updated.localIp,
+    publicIp: updated.publicIp,
+    version: updated.version,
+  }).catch((error) => {
+    console.error("failed to publish disconnect projection", error);
+  });
+
+  await revokeAgentRedisSession(updated.organizationId, updated.deviceId).catch((error) => {
+    console.error("failed to revoke redis session", error);
   });
 
   return NextResponse.json({ success: true, removed: false, agent: updated });

@@ -10,6 +10,7 @@ export type AuditOutcome = "success" | "failure" | "denied" | "info";
 export type AuditActorType = "user" | "agent" | "system" | "unknown";
 
 export type AuditEventInput = {
+  organizationId?: string | null;
   category: string;
   action: string;
   outcome?: AuditOutcome;
@@ -29,6 +30,7 @@ export type AuditEventInput = {
 export async function recordAuditEvent(input: AuditEventInput) {
   try {
     await db.insert(auditLog).values({
+      organizationId: input.organizationId ?? null,
       category: input.category,
       action: input.action,
       outcome: input.outcome ?? "info",
