@@ -20,7 +20,7 @@ Core platform functionality is actively being developed, and many features are s
 * 🖥️ Expanding infrastructure management capabilities
 * ✨ Improving stability, security, and overall developer experience
 
-Until an initial stable release is available, breaking changes should be expected.
+Until an initial stable release is published, there is no available instance to use  
 
 ---
 
@@ -73,9 +73,12 @@ This redesign lays the foundation for future capabilities while making it signif
 
 A hosted preview of Fortmont Control Plane and Fortmont Cloud is planned once the platform reaches a stable state.
 
-At this stage, local development is **not officially supported**, as the architecture is still evolving rapidly and frequent breaking changes are expected.
+The control plane will be available when released at (Fortmont Contrl Plane)[https://admin.cloud.fortmont.me] and Fortmont Cloud will be at (Fortmont Cloud)[https://cloud.fortmont.me]
 
-Installation guides and developer documentation will be published when the project reaches its first stable milestone.
+No local development support is planned for this project, as this project is open source but cloud hosted. If you would like this project to have local dev support, please send a email to support@fortmont.me with your inquiry 
+
+
+
 
 ---
 
