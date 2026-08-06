@@ -274,16 +274,104 @@ export function DynamicOnboardingFlow() {
                 <div className="h-64 overflow-y-auto rounded-lg border bg-muted/20 p-4 text-xs leading-relaxed text-muted-foreground space-y-3">
                   <p className="font-medium text-foreground">Last Updated: August 2026</p>
                   <p>
-                    Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-                  </p>
-                  <p>
-                    Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-                  </p>
-                  <p>
-                    Curabitur pretium tiddunt lacus. Nulla gravida orci a odio. Nullam varius, turpis et commodo pharetra, est eros bibendum elit, nec luctus magna felis sollicitudin mauris. Integer in mauris eu nibh euismod gravida. Duis ac tellus et risus vulputate vehicula.
-                  </p>
-                  <p>
-                    Phasellus dolor elit, pellentesque a, facilisis vel, egestas non, text. Fusce aliquet pede justo. Ut a nisl id ante tempus hendrerit. Proin pretium, leo ac pellentesque mollis, felis nunc ultrices eros, sed gravida augue augue mollis justo.
+                    # Terms & Conditions
+
+**Last Updated:** August 7, 2026
+
+Welcome to **Fortmont Control Plane** ("Fortmont", "we", "our", or "us"). By accessing or using Fortmont Control Plane, you agree to these Terms & Conditions. If you do not agree with these terms, please do not use the platform.
+
+## 1. Use of the Service
+
+Fortmont Control Plane provides a hosted platform for managing infrastructure, agents, organizations, and related services. You agree to use the platform only for lawful purposes and in accordance with these Terms.
+
+You are responsible for ensuring that your use of the platform complies with all applicable laws, regulations, and organizational policies.
+
+## 2. Account Responsibility
+
+You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.
+
+You agree to:
+
+* Provide accurate and up-to-date account information.
+* Keep your password and authentication methods secure.
+* Notify us promptly if you believe your account has been compromised.
+
+## 3. Organizations and Access
+
+Organization owners are responsible for managing users, permissions, and access within their organization.
+
+Users must only access resources they have been authorized to use. Attempting to bypass permissions, access another organization's data, or interfere with the operation of the platform is strictly prohibited.
+
+## 4. Acceptable Use
+
+You agree not to:
+
+* Use the platform for unlawful or fraudulent activities.
+* Attempt to gain unauthorized access to Fortmont or any connected systems.
+* Distribute malware, malicious code, or harmful content.
+* Disrupt or interfere with the availability or security of the platform.
+* Reverse engineer or exploit vulnerabilities within the service.
+
+## 5. Customer Data
+
+You retain ownership of the data you upload or generate through Fortmont.
+
+By using the service, you grant Fortmont permission to process, store, and transmit your data solely for the purpose of providing and improving the service.
+
+We take reasonable measures to protect customer data but cannot guarantee absolute security.
+
+## 6. Infrastructure Connections
+
+Fortmont may connect to third-party infrastructure, including virtualization platforms, cloud services, and other supported systems.
+
+You are responsible for ensuring you have the authority to connect Fortmont to those systems and for maintaining appropriate credentials and permissions.
+
+## 7. Service Availability
+
+While we aim to provide a reliable service, Fortmont is provided on an "as available" basis.
+
+Maintenance, updates, unexpected outages, or circumstances beyond our control may temporarily affect service availability.
+
+## 8. Security
+
+We implement reasonable security measures to protect the platform and customer information. However, no internet-based service can guarantee complete security.
+
+Users are encouraged to enable multi-factor authentication where available and follow security best practices.
+
+## 9. Third-Party Services
+
+Fortmont may integrate with third-party services, APIs, or infrastructure providers.
+
+We are not responsible for the availability, security, or functionality of third-party services.
+
+## 10. Intellectual Property
+
+Fortmont Control Plane, including its software, branding, documentation, and associated materials, remains the property of Fortmont unless otherwise stated.
+
+These Terms do not grant ownership or intellectual property rights to users.
+
+## 11. Limitation of Liability
+
+To the maximum extent permitted by law, Fortmont shall not be liable for indirect, incidental, consequential, or special damages arising from the use or inability to use the platform.
+
+Users remain responsible for maintaining appropriate backups of important data and configurations.
+
+## 12. Termination
+
+We reserve the right to suspend or terminate accounts that violate these Terms, compromise platform security, or misuse the service.
+
+Users may stop using the platform at any time.
+
+## 13. Changes to These Terms
+
+We may update these Terms & Conditions from time to time. Material changes will be communicated through the platform or by other reasonable means.
+
+Continued use of Fortmont after updated Terms become effective constitutes acceptance of the revised Terms.
+
+## 14. Contact
+
+If you have any questions regarding these Terms & Conditions, please contact the Fortmont team using the support options available within the platform or through our official website.
+
                   </p>
                 </div>
                 <div className="flex items-center justify-between pt-2">
