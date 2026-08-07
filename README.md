@@ -22,7 +22,7 @@ Core platform functionality is actively being developed, and many features are s
 
 Until an initial stable release is published, there is no available instance to use  
 
-Current dashboard view
+Current dashboard view, the project is still in alpha, and mostly placeholder values are on the dashboard, insparation take from Better auth infrastructure dashboard 
 
 ![Dashboard Screenshot](repo-res/v0.3.5pre.png)
 
