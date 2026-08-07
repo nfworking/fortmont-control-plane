@@ -22,6 +22,10 @@ Core platform functionality is actively being developed, and many features are s
 
 Until an initial stable release is published, there is no available instance to use  
 
+Current dashboard view
+
+![Dashboard Screenshot](repo-res/v0.3.5pre.png)
+
 ---
 
 # ☁️ The Fortmont Platform
