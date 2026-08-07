@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +35,12 @@ export default function JoinOrganizationPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [payload, setPayload] = useState<JoinPayload | null>(null);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
 
   const refresh = useCallback(async () => {
     if (!token) return;
@@ -87,6 +94,7 @@ export default function JoinOrganizationPage() {
       }
 
       await refresh();
+      toast.success("Join request submitted successfully.");
     } catch (cause) {
       if (cause instanceof Error) {
         setError(cause.message);

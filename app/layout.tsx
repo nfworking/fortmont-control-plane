@@ -3,6 +3,8 @@ import { JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import { Toaster } from "@/components/ui/sonner";
+
 
 const manrope = Manrope({
   variable: "--font-sans",
@@ -32,8 +34,9 @@ export default function RootLayout({
       className={`${manrope.variable} ${jetbrainsMono.variable} dark h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-black text-zinc-100">
-         <TooltipProvider>
-          {children}
+        <TooltipProvider>
+            <Toaster richColors closeButton />
+            {children}
         </TooltipProvider>
       </body>
     </html>

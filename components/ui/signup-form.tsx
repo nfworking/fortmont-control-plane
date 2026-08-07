@@ -5,6 +5,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 
 import { cn } from "@/lib/utils";
@@ -68,8 +69,10 @@ export function SignUpForm({
         callbackURL: safeRedirect,
       });
 
+      toast.success("Account created. Check your inbox to verify your email.");
       router.push(`/login?verificationEmailSent=1&next=${loginRedirectQuery}`);
     } catch {
+      toast.error("We couldn’t create your account. Please review your details and try again.");
       setError("root", {
         message: "We couldn’t create your account. Please review your details and try again.",
       });
@@ -78,11 +81,13 @@ export function SignUpForm({
 
   const onGitHubSignIn = async () => {
     try {
+      toast.info("Redirecting to GitHub sign-up...");
       await authClient.signIn.social({
         provider: "github",
         callbackURL: safeRedirect,
       });
     } catch {
+      toast.error("We couldn’t start GitHub sign-in. Please try again.");
       setError("root", {
         message: "We couldn’t start GitHub sign-in. Please try again.",
       });

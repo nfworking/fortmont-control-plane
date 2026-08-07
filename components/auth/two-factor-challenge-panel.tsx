@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -27,16 +28,14 @@ export function TwoFactorChallengePanel({ nextPath }: TwoFactorChallengePanelPro
   const [code, setCode] = useState("");
   const [trustDevice, setTrustDevice] = useState(true);
   const [isBusy, setIsBusy] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const verify = async () => {
     if (!code.trim()) {
-      setErrorMessage(mode === "totp" ? "Enter your authenticator code." : "Enter a backup code.");
+      toast.warning(mode === "totp" ? "Enter your authenticator code." : "Enter a backup code.");
       return;
     }
 
     setIsBusy(true);
-    setErrorMessage(null);
 
     try {
       if (mode === "totp") {
@@ -46,7 +45,7 @@ export function TwoFactorChallengePanel({ nextPath }: TwoFactorChallengePanelPro
         });
 
         if (result.error) {
-          setErrorMessage(result.error.message ?? "Invalid verification code.");
+          toast.error(result.error.message ?? "Invalid verification code.");
           return;
         }
       } else {
@@ -56,15 +55,16 @@ export function TwoFactorChallengePanel({ nextPath }: TwoFactorChallengePanelPro
         });
 
         if (result.error) {
-          setErrorMessage(result.error.message ?? "Invalid backup code.");
+          toast.error(result.error.message ?? "Invalid backup code.");
           return;
         }
       }
 
+      toast.success("Signed in successfully.");
       router.push(safeNextPath);
       router.refresh();
     } catch {
-      setErrorMessage("Could not verify the second factor. Please try again.");
+      toast.error("Could not verify the second factor. Please try again.");
     } finally {
       setIsBusy(false);
     }
@@ -118,8 +118,6 @@ export function TwoFactorChallengePanel({ nextPath }: TwoFactorChallengePanelPro
         />
         Trust this device for 30 days
       </label>
-
-      {errorMessage ? <p className="mt-3 text-sm text-destructive">{errorMessage}</p> : null}
 
       <Button type="button" className="mt-4 w-full" onClick={() => void verify()} disabled={isBusy}>
         {isBusy ? "Verifying..." : "Verify"}

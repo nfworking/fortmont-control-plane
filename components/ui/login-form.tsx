@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { authClient } from "@/lib/auth-client";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,7 @@ export function LoginForm({
     typeof redirectTo === "string" && redirectTo.startsWith("/")
       ? redirectTo
       : "/dashboard/control-plane";
+  const verificationCallbackURL = `/login?emailVerified=1&next=${encodeURIComponent(safeRedirect)}`;
   const {
     register,
     handleSubmit,
@@ -56,6 +59,12 @@ export function LoginForm({
     },
   });
 
+  useEffect(() => {
+    if (infoMessage) {
+      toast.info(infoMessage);
+    }
+  }, [infoMessage]);
+
   const onSubmit = async (values: LoginFormValues) => {
     try {
       await authClient.signIn.email(
@@ -66,25 +75,34 @@ export function LoginForm({
         {
           onSuccess(context) {
             if (context.data?.twoFactorRedirect) {
+              toast.info("Enter your two-factor code to finish signing in.");
               const twoFactorNext = encodeURIComponent(safeRedirect);
               router.push(`/two-factor?next=${twoFactorNext}`);
               return;
             }
 
+            toast.success("Logged in successfully.");
             router.push(safeRedirect);
           },
           onError(context) {
             if (context.error.status === 403) {
               void authClient.sendVerificationEmail({
                 email: values.email,
-                callbackURL: safeRedirect,
+                callbackURL: verificationCallbackURL,
               });
+
+              toast.warning("Email not verified. We sent a fresh verification link.");
 
               setError("root", {
                 message: "Please verify your email address. We sent a fresh verification link.",
               });
               return;
             }
+
+            toast.error(
+              context.error.message ||
+                "We couldn’t sign you in. Please check your credentials and try again.",
+            );
 
             setError("root", {
               message: context.error.message || "We couldn’t sign you in. Please check your credentials and try again.",
@@ -97,14 +115,21 @@ export function LoginForm({
       if (maybeError?.status === 403) {
         void authClient.sendVerificationEmail({
           email: values.email,
-          callbackURL: safeRedirect,
+          callbackURL: verificationCallbackURL,
         });
+
+        toast.warning("Email not verified. We sent a fresh verification link.");
 
         setError("root", {
           message: "Please verify your email address. We sent a fresh verification link.",
         });
         return;
       }
+
+      toast.error(
+        maybeError?.message ||
+          "We couldn’t sign you in. Please check your credentials and try again.",
+      );
 
       setError("root", {
         message:
@@ -116,11 +141,13 @@ export function LoginForm({
 
   const onGitHubSignIn = async () => {
     try {
+      toast.info("Redirecting to GitHub sign-in...");
       await authClient.signIn.social({
         provider: "github",
         callbackURL: safeRedirect,
       });
     } catch {
+      toast.error("We couldn’t start GitHub sign-in. Please try again.");
       setError("root", {
         message: "We couldn’t start GitHub sign-in. Please try again.",
       });
@@ -133,7 +160,6 @@ export function LoginForm({
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
           <CardDescription>Continue with email or Github</CardDescription>
-          {infoMessage ? <p className="text-sm text-emerald-600">{infoMessage}</p> : null}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)}>

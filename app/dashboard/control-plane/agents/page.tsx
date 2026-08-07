@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { DashboardHero, DashboardPage, DashboardSection } from "@/components/dashboard/page-shell";
 import { Badge } from "@/components/ui/badge";
@@ -202,6 +203,7 @@ export default function ControlPlaneAgentsPage() {
           token: body.token,
           tokenInfo: body.tokenInfo,
         });
+        toast.success("Agent join token generated.");
         setRegisterDialogOpen(false);
         setTokenLabel("");
         setTokenMaxUses(1);
@@ -233,11 +235,14 @@ export default function ControlPlaneAgentsPage() {
       }
 
       await fetchData();
+      toast.success("Agent unregistered.");
     } catch (cause) {
       if (cause instanceof Error) {
         setError(cause.message);
+        toast.error(cause.message);
       } else {
         setError("Unknown error while unregistering agent");
+        toast.error("Unknown error while unregistering agent");
       }
     }
   };
@@ -256,11 +261,14 @@ export default function ControlPlaneAgentsPage() {
       }
 
       await fetchData();
+      toast.success("Join token revoked.");
     } catch (cause) {
       if (cause instanceof Error) {
         setError(cause.message);
+        toast.error(cause.message);
       } else {
         setError("Unknown error while revoking token");
+        toast.error("Unknown error while revoking token");
       }
     }
   };

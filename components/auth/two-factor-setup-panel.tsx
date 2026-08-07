@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import QRCode from "react-qr-code";
+import { toast } from "sonner";
 
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -34,8 +35,6 @@ export function TwoFactorSetupPanel({
   const [verificationCode, setVerificationCode] = useState("");
   const [totpUri, setTotpUri] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
   const userWithTwoFactor = session?.user as { twoFactorEnabled?: boolean } | undefined;
@@ -54,8 +53,6 @@ export function TwoFactorSetupPanel({
 
   const enableTwoFactor = async () => {
     setIsBusy(true);
-    setErrorMessage(null);
-    setStatusMessage(null);
 
     try {
       const result = await authClient.twoFactor.enable({
@@ -64,15 +61,15 @@ export function TwoFactorSetupPanel({
       });
 
       if (result.error) {
-        setErrorMessage(result.error.message ?? "Failed to initialize 2FA setup.");
+        toast.error(result.error.message ?? "Failed to initialize 2FA setup.");
         return;
       }
 
       setTotpUri(result.data?.totpURI ?? "");
       setBackupCodes(result.data?.backupCodes ?? []);
-      setStatusMessage("QR code generated. Scan it and verify with a 6-digit code.");
+      toast.success("QR code generated. Scan it and verify with a 6-digit code.");
     } catch (error) {
-      setErrorMessage(resolveError(error, "Failed to initialize 2FA setup."));
+      toast.error(resolveError(error, "Failed to initialize 2FA setup."));
     } finally {
       setIsBusy(false);
     }
@@ -80,13 +77,11 @@ export function TwoFactorSetupPanel({
 
   const verifyTotp = async () => {
     if (!verificationCode.trim()) {
-      setErrorMessage("Enter the 6-digit code from your authenticator app.");
+      toast.warning("Enter the 6-digit code from your authenticator app.");
       return;
     }
 
     setIsBusy(true);
-    setErrorMessage(null);
-    setStatusMessage(null);
 
     try {
       const result = await authClient.twoFactor.verifyTotp({
@@ -95,15 +90,15 @@ export function TwoFactorSetupPanel({
       });
 
       if (result.error) {
-        setErrorMessage(result.error.message ?? "Invalid verification code.");
+        toast.error(result.error.message ?? "Invalid verification code.");
         return;
       }
 
-      setStatusMessage("Two-factor authentication is now enabled.");
+      toast.success("Two-factor authentication is now enabled.");
       router.push(safeNextPath);
       router.refresh();
     } catch (error) {
-      setErrorMessage(resolveError(error, "Failed to verify the TOTP code."));
+      toast.error(resolveError(error, "Failed to verify the TOTP code."));
     } finally {
       setIsBusy(false);
     }
@@ -111,8 +106,6 @@ export function TwoFactorSetupPanel({
 
   const disableTwoFactor = async () => {
     setIsBusy(true);
-    setErrorMessage(null);
-    setStatusMessage(null);
 
     try {
       const result = await authClient.twoFactor.disable({
@@ -120,17 +113,17 @@ export function TwoFactorSetupPanel({
       });
 
       if (result.error) {
-        setErrorMessage(result.error.message ?? "Failed to disable 2FA.");
+        toast.error(result.error.message ?? "Failed to disable 2FA.");
         return;
       }
 
       setTotpUri("");
       setBackupCodes([]);
       setVerificationCode("");
-      setStatusMessage("Two-factor authentication has been disabled.");
+      toast.success("Two-factor authentication has been disabled.");
       router.refresh();
     } catch (error) {
-      setErrorMessage(resolveError(error, "Failed to disable 2FA."));
+      toast.error(resolveError(error, "Failed to disable 2FA."));
     } finally {
       setIsBusy(false);
     }
@@ -214,9 +207,6 @@ export function TwoFactorSetupPanel({
           </Button>
         </div>
       ) : null}
-
-      {errorMessage ? <p className="text-sm text-destructive">{errorMessage}</p> : null}
-      {statusMessage ? <p className="text-sm text-emerald-600">{statusMessage}</p> : null}
 
       <Button type="button" variant="outline" onClick={() => router.push(safeNextPath)}>
         Return

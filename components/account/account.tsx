@@ -15,6 +15,7 @@ import {
   Loader2,
   Check,
 } from "lucide-react"
+import { toast } from "sonner"
 import { authClient } from "@/lib/auth-client"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
@@ -175,9 +176,12 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
         setJoinLink(null)
         setJoinRequests([])
       }
+
+      toast.success("Organization switched.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load organization details"
       setOrgAdminError(message)
+      toast.error(message)
     } finally {
       setOrgAdminBusy(false)
     }
@@ -207,9 +211,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       }
 
       await loadAdminData()
+      toast.success("Join link rotated.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to rotate join link"
       setOrgAdminError(message)
+      toast.error(message)
     } finally {
       setOrgAdminBusy(false)
     }
@@ -234,9 +240,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       }
 
       await loadAdminData()
+      toast.success(enabled ? "Join link enabled." : "Join link disabled.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update join link"
       setOrgAdminError(message)
+      toast.error(message)
     } finally {
       setOrgAdminBusy(false)
     }
@@ -262,9 +270,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       }
 
       await loadAdminData()
+      toast.success("Join link revoked.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to revoke join link"
       setOrgAdminError(message)
+      toast.error(message)
     } finally {
       setOrgAdminBusy(false)
     }
@@ -290,9 +300,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
 
       await loadAdminData()
       await loadOrganizationMembers()
+      toast.success(decision === "approve" ? "Join request approved." : "Join request rejected.")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to update join request"
       setOrgAdminError(message)
+      toast.error(message)
     } finally {
       setOrgAdminBusy(false)
     }
@@ -305,8 +317,10 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
       await navigator.clipboard.writeText(generatedJoinLinkUrl)
       setCopiedJoinLink(true)
       window.setTimeout(() => setCopiedJoinLink(false), 1800)
+      toast.success("Join link copied to clipboard.")
     } catch {
       setOrgAdminError("Failed to copy join link")
+      toast.error("Failed to copy join link")
     }
   }
 
@@ -421,9 +435,12 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     const { error } = await authClient.updateUser({ name: editedName })
 
     if (error) {
-      setProfileSaveError(error.message ?? "Failed to update profile")
+      const message = error.message ?? "Failed to update profile"
+      setProfileSaveError(message)
+      toast.error(message)
     } else {
       setProfileSaveSuccess("Profile updated")
+      toast.success("Profile updated")
       window.setTimeout(() => setProfileSaveSuccess(null), 2500)
     }
 
@@ -444,9 +461,11 @@ export default function SettingsDialog({ isOpen, onClose }: SettingsDialogProps)
     try {
       await uploadAvatarFile(file)
       setAvatarSuccess("Profile picture updated")
+      toast.success("Profile picture updated")
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to upload profile picture"
       setAvatarError(message)
+      toast.error(message)
     } finally {
       setIsUploadingAvatar(false)
     }
