@@ -26,6 +26,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
 	const action = getAuthAction(request.nextUrl.pathname);
+	const isSendVerificationRequest = request.nextUrl.pathname.includes(
+		"/send-verification-email",
+	);
 	const context = buildRequestAuditContext(request);
 	const preSession =
 		action === "auth.sign_out"
@@ -37,7 +40,36 @@ export async function POST(request: NextRequest) {
 		.catch(() => null);
 	const email = extractEmailFromUnknown(body);
 
+	if (
+		action === "auth.sign_in" ||
+		action === "auth.sign_up" ||
+		isSendVerificationRequest
+	) {
+		console.info("[auth-route] request", {
+			action: action ?? "auth.send_verification_email",
+			path: request.nextUrl.pathname,
+			email,
+		});
+	}
+
 	const response = await handlers.POST(request);
+
+	if (
+		action === "auth.sign_in" ||
+		action === "auth.sign_up" ||
+		isSendVerificationRequest
+	) {
+		const payload = await response
+			.clone()
+			.json()
+			.catch(() => null);
+
+		console.info("[auth-route] response", {
+			action: action ?? "auth.send_verification_email",
+			status: response.status,
+			payload,
+		});
+	}
 
 	if (!action) {
 		return response;

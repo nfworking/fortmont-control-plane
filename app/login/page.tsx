@@ -9,6 +9,10 @@ import {GridBackground} from "@/components/ui/grid-bg"
 export default function LoginPage() {
   const searchParams = useSearchParams()
   const next = searchParams.get("next") ?? undefined
+  const verificationEmailSent = searchParams.get("verificationEmailSent") === "1"
+  const infoMessage = verificationEmailSent
+    ? "Check your inbox to verify your email before signing in."
+    : undefined
 
   return (
     <GridBackground>
@@ -20,7 +24,7 @@ export default function LoginPage() {
           </div>
           Fortmont Control Plane
         </a>
-        <LoginForm redirectTo={next} />
+        <LoginForm redirectTo={next} infoMessage={infoMessage} />
       </div>
     </div>
     </GridBackground>

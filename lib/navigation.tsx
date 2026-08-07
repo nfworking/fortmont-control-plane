@@ -51,6 +51,7 @@ export const baseNavigationConfig: NavigationConfig = {
     { title: "Dashboard", url: "/dashboard/control-plane", icon: <LayoutDashboardIcon />, section: 1 },
     { title: "Agents", url: "/dashboard/control-plane/agents", icon: <Sliders />, section: 1 },
     { title: "AI", url: "/dashboard/control-plane/ai/overview", icon: <CommandIcon />, section: 1 },
+    { title: "Org IAM", url: "/dashboard/control-plane/iam", icon: <Users />, section: 1 },
   ],
   nested: {
     "/dashboard/control-plane/ai": {

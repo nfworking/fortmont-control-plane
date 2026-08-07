@@ -7,7 +7,9 @@ import { nextCookies } from "better-auth/next-js";
 import { recordAuditEvent } from "@/lib/server/audit";
 import { getRequestPublicIp } from "@/lib/server/request-ip";
 import { schema } from "@/db/schema";
-import { organization } from "better-auth/plugins"
+import { organization } from "better-auth/plugins";
+import { dash } from "@better-auth/infra";
+import { sendEmailVerificationMessage } from "@/lib/server/email";
 
 const organizationPlugin = organization({
   schema: {
@@ -16,12 +18,13 @@ const organizationPlugin = organization({
         activeOrganizationId: "activeOrganizationId",
       },
     },
-  },
-})
+   },
+});
 
 export const auth = betterAuth({
    appName: "Fortmont Cloud and IAM",
-   plugins: [nextCookies(), organizationPlugin, twoFactor() ],
+   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:8090"],
+   plugins: [nextCookies(), organizationPlugin, twoFactor(), dash()],
    socialProviders: {
       github: {
          clientId: process.env.GITHUB_CLIENT_ID as string,
@@ -33,7 +36,7 @@ export const auth = betterAuth({
          }),
       },
    },
-    user: {
+   user: {
       additionalFields: {
          onboarded: {
             type: "boolean",
@@ -41,10 +44,46 @@ export const auth = betterAuth({
             defaultValue: false,
          },
       },
-   },
-   emailAndPassword: {
-    enabled: true,
   },
+   emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: true,
+      customSyntheticUser: ({ coreFields, additionalFields, id }) => ({
+         ...coreFields,
+         twoFactorEnabled: false,
+         ...additionalFields,
+         id,
+      }),
+   },
+   emailVerification: {
+      sendVerificationEmail: async ({ user, url }, request) => {
+         console.info("[email-verification] callback invoked", {
+            userId: user.id,
+            email: user.email,
+            hasWaitUntil: typeof (request as Request & { waitUntil?: unknown }).waitUntil === "function",
+         });
+
+         const sendPromise = sendEmailVerificationMessage({
+            to: user.email,
+            verificationUrl: url,
+         }).catch((error) => {
+            console.error("Failed to send verification email", error);
+         });
+
+         const requestWithWaitUntil = request as Request & {
+            waitUntil?: (promise: Promise<unknown>) => void;
+         };
+
+         if (typeof requestWithWaitUntil.waitUntil === "function") {
+            console.info("[email-verification] queued with waitUntil");
+            requestWithWaitUntil.waitUntil(sendPromise);
+            return;
+         }
+
+         console.info("[email-verification] running without waitUntil");
+         void sendPromise;
+      },
+   },
    hooks: {
       after: createAuthMiddleware(async (ctx) => {
          const newSession = ctx.context.newSession;
@@ -93,9 +132,8 @@ export const auth = betterAuth({
          }
       }),
    },
- database: drizzleAdapter(db, {
-    provider:"pg",
+   database: drizzleAdapter(db, {
+      provider: "pg",
     schema,
- }),
- 
+   }),
 });

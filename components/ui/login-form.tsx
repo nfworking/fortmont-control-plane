@@ -35,8 +35,9 @@ type LoginFormValues = z.infer<typeof formSchema>;
 export function LoginForm({
   className,
   redirectTo,
+  infoMessage,
   ...props
-}: React.ComponentProps<"div"> & { redirectTo?: string }) {
+}: React.ComponentProps<"div"> & { redirectTo?: string; infoMessage?: string }) {
   const router = useRouter();
   const safeRedirect =
     typeof redirectTo === "string" && redirectTo.startsWith("/")
@@ -72,11 +73,43 @@ export function LoginForm({
 
             router.push(safeRedirect);
           },
+          onError(context) {
+            if (context.error.status === 403) {
+              void authClient.sendVerificationEmail({
+                email: values.email,
+                callbackURL: safeRedirect,
+              });
+
+              setError("root", {
+                message: "Please verify your email address. We sent a fresh verification link.",
+              });
+              return;
+            }
+
+            setError("root", {
+              message: context.error.message || "We couldn’t sign you in. Please check your credentials and try again.",
+            });
+          },
         },
       );
-    } catch {
+    } catch (error) {
+      const maybeError = error as { status?: number; message?: string };
+      if (maybeError?.status === 403) {
+        void authClient.sendVerificationEmail({
+          email: values.email,
+          callbackURL: safeRedirect,
+        });
+
+        setError("root", {
+          message: "Please verify your email address. We sent a fresh verification link.",
+        });
+        return;
+      }
+
       setError("root", {
-        message: "We couldn’t sign you in. Please check your credentials and try again.",
+        message:
+          maybeError?.message ||
+          "We couldn’t sign you in. Please check your credentials and try again.",
       });
     }
   };
@@ -100,6 +133,7 @@ export function LoginForm({
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Welcome back</CardTitle>
           <CardDescription>Continue with email or Github</CardDescription>
+          {infoMessage ? <p className="text-sm text-emerald-600">{infoMessage}</p> : null}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)}>

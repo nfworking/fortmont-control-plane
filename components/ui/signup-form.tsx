@@ -44,6 +44,7 @@ export function SignUpForm({
     typeof redirectTo === "string" && redirectTo.startsWith("/")
       ? redirectTo
       : "/dashboard/control-plane";
+  const loginRedirectQuery = encodeURIComponent(safeRedirect);
   const {
     register,
     handleSubmit,
@@ -67,7 +68,7 @@ export function SignUpForm({
         callbackURL: safeRedirect,
       });
 
-      router.push(safeRedirect);
+      router.push(`/login?verificationEmailSent=1&next=${loginRedirectQuery}`);
     } catch {
       setError("root", {
         message: "We couldn’t create your account. Please review your details and try again.",
