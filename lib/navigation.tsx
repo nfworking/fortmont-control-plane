@@ -52,6 +52,7 @@ export const baseNavigationConfig: NavigationConfig = {
     { title: "Agents", url: "/dashboard/control-plane/agents", icon: <Sliders />, section: 1 },
     { title: "AI", url: "/dashboard/control-plane/ai/overview", icon: <CommandIcon />, section: 1 },
     { title: "Org IAM", url: "/dashboard/control-plane/iam", icon: <Users />, section: 1 },
+    { title: "Intergrations", url: "/dashboard/control-plane/intergrations", icon: <Clock />, section: 1 },
   ],
   nested: {
     "/dashboard/control-plane/ai": {
@@ -61,6 +62,25 @@ export const baseNavigationConfig: NavigationConfig = {
         { title: "Dashboard", url: "/dashboard/control-plane/ai/overview", icon: <LayoutDashboardIcon /> },
         { title: "Providers", url: "/dashboard/control-plane/ai/providers", icon: <Sliders /> },
         { title: "Chat", url: "/dashboard/control-plane/ai/chat", icon: <GlobeLock /> },
+      ],
+    },
+    "/dashboard/control-plane/iam": {
+      parentTitle: "IAM Home",
+      parentUrl: "/dashboard/control-plane/iam",
+      items: [
+        { title: "Dashboard", url: "/dashboard/control-plane/iam", icon: <LayoutDashboardIcon /> },
+        { title: "Users", url: "/dashboard/control-plane/iam/users", icon: <Users /> },
+        { title: "Roles", url: "/dashboard/control-plane/iam/roles", icon: <Shield /> },
+      ],
+    },
+    "/dashboard/control-plane/intergrations": {
+      parentTitle: "Integrations Home",
+      parentUrl: "/dashboard/control-plane/intergrations",
+      items: [
+        { title: "Dashboard", url: "/dashboard/control-plane/intergrations", icon: <LayoutDashboardIcon /> },
+        { title: "Proxmox", url: "/dashboard/control-plane/intergrations/proxmox ", icon: <MailIcon /> },
+        { title: "Unifi", url: "/dashboard/control-plane/intergrations/unifi", icon: <Database /> },
+        { title: "Network", url: "/dashboard/control-plane/intergrations/network", icon: <NetworkIcon /> },
       ],
     },
   },

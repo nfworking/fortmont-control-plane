@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AppLoadingGate } from "@/components/common/app-loading-gate";
 
 import { Toaster } from "@/components/ui/sonner";
 
@@ -36,7 +37,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-black text-zinc-100">
         <TooltipProvider>
             <Toaster richColors closeButton />
-            {children}
+            <AppLoadingGate>{children}</AppLoadingGate>
         </TooltipProvider>
       </body>
     </html>
